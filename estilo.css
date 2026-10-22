@@ -73,9 +73,18 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .testata { position: relative; min-height: 148px; margin-bottom: 16px; }
 .planta-appesa { position: absolute; top: calc(-24px - env(safe-area-inset-top)); right: -6px; width: 92px; height: 176px; pointer-events: none; }
 .giorno { font-size: 13px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--primaria); }
-.data { font: 600 44px/1.08 var(--f-titulo); margin: 8px 0 16px; max-width: calc(100% - 84px); }
-.sublinhado { position: relative; z-index: 0; white-space: nowrap; }
-.sublinhado::after { content: ''; position: absolute; z-index: -1; left: -4px; right: -4px; bottom: .04em; height: .26em; background: var(--destaque); border-radius: 999px; }
+/* a data encolhe nos telefones estreitos e, se precisar, vai para a linha de baixo: nunca passa por baixo da planta */
+.data { font: 600 clamp(30px, 9.4vw, 44px)/1.12 var(--f-titulo); margin: 8px 0 16px; max-width: calc(100% - 100px); }
+/* o destaque amarelo é desenhado como fundo do próprio texto (pílula = duas pontas redondas + meio),
+   assim funciona igual no Safari do iPhone e em todas as linhas, se a data quebrar */
+.sublinhado {
+  padding: 0 .08em; margin: 0 -.08em;
+  background:
+    radial-gradient(circle closest-side, var(--destaque) 98%, transparent) left 0 bottom .04em / .26em .26em no-repeat,
+    radial-gradient(circle closest-side, var(--destaque) 98%, transparent) right 0 bottom .04em / .26em .26em no-repeat,
+    linear-gradient(var(--destaque), var(--destaque)) center bottom .04em / calc(100% - .26em) .26em no-repeat;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
 .saudacao { font-size: 17px; line-height: 1.45; color: var(--cinza); max-width: calc(100% - 72px); }
 .saudacao b { font-weight: 600; color: var(--tinta); }
 .link { color: var(--primaria); font-size: 15px; font-weight: 600; min-height: 44px; margin-top: 4px; text-decoration: underline; text-underline-offset: 3px; }

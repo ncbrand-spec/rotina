@@ -369,3 +369,25 @@ body.trancado #abas { display: none; }
   .guia-dicas { columns: 2; column-gap: 56px; }
   .guia-dicas .dica { break-inside: avoid; }
 }
+
+/* ---------- aiuto per criar o ícone no iPhone (só no navegador) ---------- */
+#instalar {
+  position: fixed; left: 12px; right: 12px; z-index: 30;
+  max-width: 480px; margin: 0 auto;
+  background: var(--carta); color: var(--tinta);
+  border: 2px solid var(--tinta); border-radius: 24px; box-shadow: 4px 4px 0 var(--tinta);
+  padding: 18px 18px 14px; font-size: 15px; line-height: 1.45;
+}
+#instalar.embaixo { bottom: calc(env(safe-area-inset-bottom) + 14px); }
+#instalar.em-cima { top: calc(env(safe-area-inset-top) + 14px); }
+.instalar-topo { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.instalar-topo img { border-radius: 12px; flex: none; }
+.instalar-topo strong { font: 600 20px/1.2 var(--f-titulo); }
+#instalar ol { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
+#instalar .tecla { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 8px; border: 1.5px solid var(--linha-forte); background: #fff; font-weight: 600; white-space: nowrap; }
+#instalar .tecla svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#instalar .it { color: var(--cinza); font-size: 13px; }
+.instalar-fechar { display: block; margin: 12px 0 0 auto; min-height: 44px; padding: 0 16px; font-size: 15px; font-weight: 600; color: var(--primaria); }
+#instalar .seta { position: absolute; width: 18px; height: 18px; background: var(--carta); border: 2px solid var(--tinta); transform: rotate(45deg); }
+#instalar.embaixo .seta { bottom: -11px; left: calc(50% - 9px); border-top: 0; border-left: 0; }
+#instalar.em-cima .seta { top: -11px; right: 34px; border-bottom: 0; border-right: 0; }

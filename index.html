@@ -1,12 +1,11 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-planta-topo="filodendro" data-plantas-rodape="alocasia:giallo,stromanthe:terracotta" data-ramo-fase="variada" data-ramo-cor="#b7811a">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Rotina</title>
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#F7F3EF" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#171312" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#fff0d8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Rotina">
@@ -14,7 +13,11 @@
 <link rel="apple-touch-icon" href="icones/icone-180.png">
 <link rel="icon" type="image/png" href="icones/icone-192.png">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Poppins:wght@400;500;600&display=swap" crossorigin>
 <link rel="stylesheet" href="estilo.css">
+<link rel="stylesheet" href="temas/mista.css">
 </head>
 <body class="trancado">
 <form id="cadeado" hidden autocomplete="on">
@@ -36,6 +39,8 @@
   <button data-acao="aba" data-aba="guia"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.6M12 7.6v.2"/></svg><span>Guia</span></button>
 </nav>
 <div id="aviso" role="status" aria-live="polite"></div>
+<script src="piante.js"></script>
+<script src="folhas.js"></script>
 <script src="cadeado.js"></script>
 </body>
 </html>

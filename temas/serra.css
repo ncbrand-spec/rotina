@@ -1,0 +1,5 @@
+/* Tema «Serra»: burro, Playfair Display + Poppins, verde petrolio, cremisi, sottolineatura gialla, piante a colori.
+   I valori di base di estilo.css sono già quelli della Serra: qui solo i ritocchi. */
+.fase { background: var(--carta); }
+.fase-selo { color: var(--primaria); }
+.cartao.novo { border-left: 4px solid var(--primaria); }

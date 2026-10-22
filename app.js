@@ -2,7 +2,6 @@
 
 // ---------- datas ----------
 const DIAS_SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
-const DIAS_LETRA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 const DIAS_CURTOS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -164,34 +163,90 @@ const ICONES = {
 };
 const icone = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONES[n]}</svg>`;
 
+// as piante della Serra: si disegnano una volta sola e poi si ricopiano a ogni render
+const DECOR = document.documentElement.dataset;
+const cachePlantas = {};
+function plantas(raiz) {
+  raiz.querySelectorAll('svg[data-pianta], svg[data-folha]').forEach(svg => {
+    const k = ['pianta', 'folha', 'stile', 'vaso', 'appeso', 'colore'].map(a => svg.dataset[a]).join('|');
+    if (!cachePlantas[k]) {
+      if (svg.dataset.folha && window.Folhas) Folhas.riempi(svg);
+      else if (svg.dataset.pianta && window.Piante) Piante.riempi(svg);
+      cachePlantas[k] = [svg.getAttribute('viewBox'), svg.innerHTML];
+      return;
+    }
+    svg.setAttribute('viewBox', cachePlantas[k][0]); svg.setAttribute('aria-hidden', 'true'); svg.innerHTML = cachePlantas[k][1];
+  });
+}
+
+// a folha do cartão da fase: uma diferente a cada abertura do app (nunca a mesma da vez anterior)
+const FOLHAS_SERRA = { 'foglia-monstera': 'Costela-de-adão', 'foglia-alocasia': 'Alocásia', 'foglia-filodendro': 'Filodendro Brasil', 'foglia-stromanthe': 'Maranta Triostar', 'foglia-begonia': 'Begônia maculata' };
+const folhaDaVez = (() => {
+  const pedida = new URLSearchParams(location.search).get('folha') || DECOR.ramoFase;
+  if (!pedida || pedida !== 'variada') return pedida || null;
+  const todas = [...Object.keys(FOLHAS_SERRA), ...(window.Folhas ? Folhas.nomes : [])];
+  let ultima = null;
+  try { ultima = localStorage.getItem('rotina-folha'); } catch (e) { /* sem memória: tanto faz */ }
+  const opcoes = todas.filter(x => x !== ultima);
+  const escolha = opcoes[Math.floor(Math.random() * opcoes.length)];
+  try { localStorage.setItem('rotina-folha', escolha); } catch (e) { /* idem */ }
+  return escolha;
+})();
+const nomeDaFolha = k => FOLHAS_SERRA[k] || (window.Folhas && Folhas.nome(k)) || '';
+const folhaDaFase = () => {
+  if (!folhaDaVez) return '';
+  const attr = folhaDaVez.startsWith('foglia-') ? `data-pianta="${folhaDaVez}" data-stile="linea"` : `data-folha="${folhaDaVez}"`;
+  return `<svg class="ramo" ${attr} data-colore="${DECOR.ramoCor || '#c98f1f'}" data-tratto="1.4"></svg>`;
+};
+const plantaAppesa = () => DECOR.plantaTopo ? `<svg class="planta-appesa" data-pianta="${DECOR.plantaTopo}" data-stile="colore" data-vaso="crema" data-appeso="si"></svg>` : '';
+const prateleira = () => DECOR.plantasRodape ? `<div class="prateleira">${DECOR.plantasRodape.split(',').map(x => { const [n, v] = x.split(':'); return `<svg data-pianta="${n}" data-stile="colore" data-vaso="${v}"></svg>`; }).join('')}</div>` : '';
+
 function render() {
   const mesmaAba = render.ultimaAba === vista.aba;
   const y = window.scrollY;
   const telas = { hoje: telaHoje, produtos: telaProdutos, calendario: telaCalendario, diario: telaDiario, guia: telaGuia };
-  document.getElementById('tela').innerHTML = telas[vista.aba]();
+  const tela = document.getElementById('tela');
+  tela.innerHTML = telas[vista.aba]();
+  plantas(tela);
   document.querySelectorAll('#abas button').forEach(b => b.setAttribute('aria-current', b.dataset.aba === vista.aba ? 'page' : 'false'));
   window.scrollTo(0, mesmaAba ? y : 0);
   render.ultimaAba = vista.aba;
 }
 
 // ---------- Hoje ----------
+function saudacao() { const h = new Date().getHours(); return h < 12 ? 'Bom dia.' : h < 18 ? 'Boa tarde.' : 'Boa noite.'; }
+
+function resumo(d) {
+  const m = progresso(d, 'manha'), n = progresso(d, 'noite');
+  const faltam = (p, quando) => { const x = p.total - p.feitos; return `${x === 1 ? 'Falta 1 passo' : `Faltam ${x} passos`} ${quando}.`; };
+  if (d > HOJE) return 'Dia futuro: só para consultar.';
+  if (m.completo && n.completo) return 'Rotina completa. Muito bem!';
+  if (d < HOJE) return `Manhã ${m.feitos} de ${m.total} · noite ${n.feitos} de ${n.total}.`;
+  if (new Date().getHours() < 15) return m.completo ? `Manhã feita. À noite são ${n.total} passos.` : faltam(m, 'de manhã');
+  return n.completo ? 'Noite feita.' : faltam(n, 'à noite');
+}
+
 function telaHoje() {
-  const d = vista.dia, ehHoje = d === HOJE;
+  const d = vista.dia, ehHoje = d === HOJE, dd = deISO(d);
   const fase = faseDe(d);
-  let h = `<header class="topo">
-    <p class="sobre">${ehHoje ? 'Hoje' : (d < HOJE ? 'Dia passado' : 'Dia futuro')}</p>
-    <h1>${fmtLongo(d)}</h1>
+  let h = `<header class="testata">
+    ${plantaAppesa()}
+    <p class="giorno">${ehHoje ? DIAS_SEMANA[dd.getDay()] : (d < HOJE ? 'Dia passado · ' : 'Dia futuro · ') + DIAS_SEMANA[dd.getDay()]}</p>
+    <h1 class="data"><span class="sublinhado">${dd.getDate()} de ${MESES[dd.getMonth()]}</span></h1>
+    <p class="saudacao">${ehHoje ? `<b>${saudacao()}</b> ` : ''}${esc(resumo(d))}</p>
     ${ehHoje ? '' : '<button class="link" data-acao="irHoje">Voltar para hoje</button>'}
   </header>`;
   h += semana(d);
   if (fase) h += `<button class="fase${fase.viagem ? ' fase-sol' : ''}" data-acao="aba" data-aba="calendario">
-      <span class="sobre">Fase ${FASES.indexOf(fase) + 1} de ${FASES.length}${fase.ate ? ' · até ' + fmtDiaMes(fase.ate) : ''}</span>
+      ${folhaDaFase()}
+      <span class="fase-selo">Fase ${FASES.indexOf(fase) + 1} de ${FASES.length}</span>
       <strong>${esc(fase.titulo)}</strong>
-      <span>${esc(fase.objetivo)}</span>
+      <span class="fase-obj">${esc(fase.objetivo)}${fase.ate ? ` <em>Até ${fmtDiaMes(fase.ate)}.</em>` : ''}</span>
+      ${folhaDaVez ? `<span class="fase-folha">Folha de hoje · ${esc(nomeDaFolha(folhaDaVez))}</span>` : ''}
     </button>`;
   if (ehHoje) h += acoesDeHoje().map(cartaoAcao).join('');
   h += turno('manha', d) + turno('noite', d);
-  return h;
+  return h + prateleira();
 }
 
 function semana(d) {
@@ -202,7 +257,7 @@ function semana(d) {
     const m = progresso(x, 'manha'), n = progresso(x, 'noite');
     const ponto = p => p.completo ? 'cheio' : (p.feitos ? 'meio' : '');
     h += `<button class="dia${x === d ? ' sel' : ''}${x === HOJE ? ' hoje' : ''}${emViagem(x) ? ' sol' : ''}" data-acao="verDia" data-dia="${x}" aria-label="${fmtLongo(x)}">
-      <span class="letra">${DIAS_LETRA[dd.getDay()]}</span><span class="num">${dd.getDate()}</span>
+      <span class="letra">${DIAS_CURTOS[dd.getDay()]}</span><span class="num">${dd.getDate()}</span>
       <span class="pontos">${x <= HOJE ? `<i class="${ponto(m)}"></i><i class="${ponto(n)}"></i>` : '<i class="vazio"></i><i class="vazio"></i>'}</span>
     </button>`;
   }
@@ -213,19 +268,23 @@ function turno(t, d) {
   const itens = itensDoTurno(t, d);
   const f = feitosDe(d, t), pr = progresso(d, t);
   const futuro = d > HOJE;
-  let h = `<section class="turno"><div class="turno-topo">
-    <h2>${icone(t === 'manha' ? 'sol' : 'lua', 'ic-turno')}${t === 'manha' ? 'Manhã' : 'Noite'}</h2>
-    <span class="contagem${pr.completo ? ' ok' : ''}">${pr.completo ? 'Completa' : pr.feitos + ' de ' + pr.total}</span>
-  </div><ol class="lista">`;
-  let corpo = false;
-  itens.forEach((it, i) => {
+  const pct = pr.total ? Math.round(pr.feitos / pr.total * 100) : 0;
+  let h = `<section class="turno turno-${t}${pr.completo ? ' completo' : ''}"><span class="turno-selo">${pr.total} ${pr.total === 1 ? 'passo' : 'passos'}</span><div class="turno-topo">
+    <h2><span class="turno-icone">${icone(t === 'manha' ? 'sol' : 'lua')}</span>${t === 'manha' ? 'Manhã' : 'Noite'}</h2>
+    <span class="contagem">${pr.completo ? 'Completa ✓' : pr.feitos + ' de ' + pr.total}</span>
+  </div>
+  <div class="barra" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>
+  <ol class="lista">`;
+  let corpo = false, n = 0;
+  itens.forEach(it => {
     const p = it.p, feito = !!f[p.id], chave = t + p.id, aberto = vista.abertos[chave];
     if (p.area === 'Corpo' && !corpo) { corpo = true; h += `<li class="separador">Corpo</li>`; }
-    h += `<li class="item${feito ? ' feito' : ''}">
+    n++;
+    h += `<li class="item${feito ? ' feito' : ''}${it.opcional ? ' opcional' : ''}">
       <button class="marcar" data-acao="marcar" data-turno="${t}" data-id="${p.id}" ${futuro ? 'disabled' : ''} aria-pressed="${feito}">
-        <span class="bola">${icone('check')}</span>
+        <span class="bola"><span class="num">${n}</span>${icone('check')}</span>
         <span class="texto"><span class="nome">${esc(p.curto)}</span>
-        ${it.etiqueta ? `<span class="etiqueta">${esc(it.etiqueta)}</span>` : ''}${it.opcional ? '<span class="etiqueta leve">Se precisar</span>' : ''}${E(p.id).repor ? '<span class="etiqueta aviso">Comprar</span>' : ''}</span>
+        ${it.etiqueta || it.opcional || E(p.id).repor ? `<span class="etiquetas">${it.etiqueta ? `<span class="etiqueta">${esc(it.etiqueta)}</span>` : ''}${it.opcional ? '<span class="etiqueta leve">Se precisar</span>' : ''}${E(p.id).repor ? '<span class="etiqueta aviso">Comprar</span>' : ''}</span>` : ''}</span>
       </button>
       <button class="info${aberto ? ' aberto' : ''}" data-acao="abrir" data-chave="${chave}" aria-label="Como usar ${esc(p.curto)}" aria-expanded="${!!aberto}">${icone('mais')}</button>
       ${aberto ? `<div class="detalhe"><p>${esc(p.como)}</p>${p.obs ? `<p class="obs">${esc(p.obs)}</p>` : ''}</div>` : ''}

@@ -1,0 +1,66 @@
+/* Tema «PlantMOV»: crema, Fraunces + DM Sans, schede con bordo d'inchiostro e ombra piena, giallo sole e malva. */
+:root {
+  --bg: #f6f0de;
+  --carta: #fffaf0;
+  --tinta: #24181e;
+  --cinza: #6b5d63;
+  --linha: rgba(36, 24, 30, .12);
+  --linha-forte: rgba(36, 24, 30, .30);
+  --primaria: #b91646;
+  --destaque: #f6ba3c;
+  --destaque-claro: #fcebc3;
+  --verde: #0c544e;
+  --verde-claro: #d6e8e3;
+  --malva: #b47ea2;
+  --malva-clara: #ecdbe6;
+  --malva-escura: #6e4362;
+  --alerta: #b91646;
+  --alerta-clara: #f7dce3;
+  --prateleira: #24181e;
+  --f-titulo: 'Fraunces', Georgia, serif;
+  --f-texto: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --card-borda: 2px solid var(--tinta);
+  --card-sombra: 4px 4px 0 var(--tinta);
+  --botao-borda: 2px solid var(--tinta);
+  --botao-sombra: 3px 3px 0 var(--tinta);
+  --sel-fundo: var(--tinta);
+  --sel-tinta: var(--bg);
+  --fase-fundo: var(--destaque);
+  --noite-fundo: var(--verde);
+  --noite-icone: var(--malva);
+}
+
+.data { font-weight: 600; letter-spacing: -.01em; }
+.sublinhado::after { background: var(--malva-clara); }
+.fase { box-shadow: 6px 6px 0 var(--tinta); }
+.fase-selo { background: var(--carta); border: 2px solid var(--tinta); border-radius: 999px; padding: 2px 12px; color: var(--tinta); }
+.fase strong { font-size: 28px; max-width: calc(100% - 72px); }
+.fase-obj { color: var(--tinta); max-width: calc(100% - 72px); }
+.ramo { position: absolute; right: -22px; top: -18px; width: 132px; height: 132px; transform: rotate(-28deg); pointer-events: none; }
+
+.cartao.novo::before { border: 1.5px solid var(--tinta); background: var(--malva-clara); color: var(--tinta); }
+
+.turno { margin-top: 44px; padding-top: 28px; }
+.turno-selo { display: inline-block; position: absolute; top: -16px; left: 20px; padding: 3px 14px; border: 2px solid var(--tinta); border-radius: 999px; background: var(--destaque); font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--tinta); }
+.turno-noite .turno-selo { background: var(--malva); }
+.turno-icone { border: 2px solid var(--tinta); }
+.barra { height: 10px; border: 2px solid var(--tinta); background: var(--carta); }
+.turno-noite .barra { border-color: var(--noite-tinta); background: rgba(255, 240, 216, .12); }
+.bola { border-color: var(--tinta); }
+.item.feito .bola { border-color: var(--tinta); }
+.turno-noite .bola, .turno-noite .item.feito .bola { border-color: var(--noite-tinta); }
+.etiqueta { border: 1.5px solid currentColor; }
+.etiqueta.leve { border: 0; }
+
+.selo { border: 1.5px solid currentColor; }
+.chip { box-shadow: inset 0 0 0 2px var(--tinta); }
+.chip.on { background: var(--verde); box-shadow: inset 0 0 0 2px var(--tinta); }
+.chip.alerta.on { background: var(--alerta); }
+select, textarea { border: 2px solid var(--tinta); background: var(--carta); }
+.dica.destaque { border: 2px solid var(--tinta); box-shadow: 4px 4px 0 var(--tinta); }
+.etapas .n { border: 2px solid var(--tinta); }
+.prateleira::after { height: 6px; }
+#cadeado input[type=password] { box-shadow: 3px 3px 0 var(--tinta); }
+
+#abas { background: var(--carta); border-top: 2px solid var(--tinta); -webkit-backdrop-filter: none; backdrop-filter: none; }
+#abas button[aria-current="page"] .ic { box-shadow: inset 0 0 0 2px var(--tinta); }

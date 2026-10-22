@@ -231,6 +231,10 @@
     terracotta: { corpo: '#c87a54', orlo: '#b86a46' },
     crema: { corpo: '#f3e4c8', orlo: '#e8d5b2', ombra: 'rgba(36,24,30,.10)' },
     verde: { corpo: '#0a5b58', orlo: '#08494a' },
+    // i vasi rari della Estufa di Velvet
+    dourado: { corpo: '#d9a520', orlo: '#c18e12' },
+    cobalto: { corpo: '#2f5d9e', orlo: '#244d86' },
+    rosa: { corpo: '#e8a1b3', orlo: '#d98aa0' },
   };
 
   // ---------- La collezione ----------

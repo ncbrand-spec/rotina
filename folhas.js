@@ -181,7 +181,8 @@
         for (let y = 92; y < 126; y += 5.5) listras += reta(pt(48.6, y + 1.6), pt(51.4, y - .6));   // o pecíolo listrado de zebra
         return {
           contorno, nervura: reta(pt(48.6, 86), pt(48.6, 128)) + reta(pt(51.4, 86), pt(51.4, 128)) + curva([pt(50, 86), pt(50, 40), pt(50, 7)]),
-          laterais: espelha(veias).map(v => curva(v)).join('') + curva([pt(50, 86), pt(36, 92), pt(23, 101)]) + curva([pt(50, 86), pt(64, 92), pt(77, 101)]) + listras
+          laterais: espelha(veias).map(v => curva(v)).join('') + curva([pt(50, 86), pt(36, 92), pt(23, 101)]) + curva([pt(50, 86), pt(64, 92), pt(77, 101)]),
+          riscas: listras
         };
       }
     },
@@ -269,7 +270,7 @@
         const esp = [polar(A, g - 90, 4, true), polar(M, g - 90, 4.4), polar(B, g - 90, 3.4), polar(B, g, 3.6), polar(B, g + 90, 3.4), polar(M, g + 90, 4.4), polar(A, g + 90, 4, true)];
         const pontos = [];
         for (let t = .15; t < .95; t += .1) for (const o of [-1.8, 1.8]) { const q = pt(A.x + (B.x - A.x) * t, A.y + (B.y - A.y) * t); pontos.push({ ...polar(q, g + 90, o), r: .7 }); }
-        return { contorno: contorno + curva(esp, true), nervura: curva([pt(50, 128), pt(51, 106), pt(50, 90)]) + curva([pt(50, 90), pt(50, 50), pt(50, 11)]), laterais: finas, pontos };
+        return { contorno, partes: [{ d: curva(esp, true), cor: '#fec340' }], nervura: curva([pt(50, 128), pt(51, 106), pt(50, 90)]) + curva([pt(50, 90), pt(50, 50), pt(50, 11)]), laterais: finas, pontos };
       }
     }
   };
@@ -298,18 +299,64 @@
     return d;
   }
 
+  // as cores de cada folha no estilo «colore» (as mudas da Estufa): folha, nervuras, haste, pintinhas
+  const CORES = {
+    ginkgo: { folha: '#8fbf4f', veia: '#c9e08f' },
+    samambaia: { folha: '#4f9a5e', veia: '#2c6b4b' },
+    bananeira: { folha: '#6aa84f', veia: '#a9d18e' },
+    bordo: { folha: '#c8553d', veia: '#eba088', haste: '#8a3a28' },
+    carvalho: { folha: '#7d9a3a', veia: '#b9cc7a' },
+    figueira: { folha: '#4a8a4a', veia: '#8fc28a' },
+    palmeira: { folha: '#3f7f5a', veia: '#2c5a40' },
+    oliveira: { folha: '#8aa38a', veia: '#c6d6c0', haste: '#7a6a4a' },
+    'alocasia-polly': { folha: '#1d4b3a', veia: '#e9efe3' },
+    'alocasia-zebrina': { folha: '#4f8a4a', veia: '#a7cf8f', riscas: '#2a2a20', haste: '#c9b98a' },
+    'alocasia-frydek': { folha: '#1f3d2f', veia: '#dfe8d6' },
+    'begonia-rex': { folha: '#6e4362', veia: '#d9cde6', haste: '#8a4a5a' },
+    'monstera-adansonii': { folha: '#2c7a4b', veia: '#5fa577' },
+    pilea: { folha: '#5aa25a', veia: '#9fd08f', pontos: '#2c6b4b' },
+    caladium: { folha: '#f4c7d3', veia: '#b61e42', pontos: '#ffffff' },
+    anturio: { folha: '#b61e42', veia: '#8f1233', pontos: '#c98f1f' }
+  };
+
   function riempi(svg) {
-    const folha = FOLHAS[svg.dataset.folha];
+    const nomeFolha = svg.dataset.folha, folha = FOLHAS[nomeFolha];
     if (!folha) return;
     const cor = svg.dataset.colore || '#0a5b58', tr = Number(svg.dataset.tratto || 1.3);
     const traco = (k, extra = '') => `fill="none" stroke="${cor}" stroke-width="${(tr * k).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"${extra}`;
     const d = folha.desenha();
     svg.setAttribute('viewBox', '0 0 100 130');
     svg.setAttribute('aria-hidden', 'true');
-    svg.innerHTML = `<path d="${d.contorno}" ${traco(1)}/>` + (d.nervura ? `<path d="${d.nervura}" ${traco(.8)}/>` : '') + (d.laterais ? `<path d="${d.laterais}" ${traco(.6, ' opacity=".75"')}/>` : '') +
-      (d.pontos || []).map(p => `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${p.r.toFixed(2)}" fill="${cor}" opacity=".8"/>`).join('');
+    if (svg.dataset.stile === 'colore') {
+      // folha cheia; as nervuras ficam claras só dentro da folha (recorte), a haste fica verde por fora
+      const c = Object.assign({ haste: '#4f7a5f', pontos: '#ffffff', riscas: '#24181e' }, CORES[nomeFolha] || { folha: '#3f8a5a', veia: '#a7cf8f' });
+      const id = 'f' + Math.random().toString(36).slice(2, 9);
+      let manchas = '';
+      if (svg.dataset.variegata === 'si') {      // a versão rara: manchas brancas, sempre iguais para a mesma folha
+        let semente = nomeFolha.length * 977;
+        const rnd = () => (semente = (semente * 16807) % 2147483647) / 2147483647;
+        for (let i = 0; i < 7; i++) manchas += `<ellipse cx="${f(15 + rnd() * 70)}" cy="${f(10 + rnd() * 90)}" rx="${f(5 + rnd() * 8)}" ry="${f(3 + rnd() * 6)}" transform="rotate(${f(rnd() * 180)} 50 60)"/>`;
+      }
+      svg.innerHTML = `<defs><clipPath id="${id}"><path d="${d.contorno}" clip-rule="evenodd"/></clipPath></defs>` +
+        (d.nervura ? `<path data-caixa d="${d.nervura}" fill="none" stroke="${c.haste}" stroke-width="2.4" stroke-linecap="round"/>` : '') +
+        `<path data-caixa d="${d.contorno}" fill="${c.folha}" fill-rule="evenodd"/>` +
+        (manchas ? `<g clip-path="url(#${id})" fill="#f6f1e2" opacity=".92">${manchas}</g>` : '') +
+        `<g clip-path="url(#${id})" fill="none" stroke="${c.veia}" stroke-linecap="round">` +
+          (d.nervura ? `<path d="${d.nervura}" stroke-width="2.2"/>` : '') + (d.laterais ? `<path d="${d.laterais}" stroke-width="1.3" opacity=".9"/>` : '') + '</g>' +
+        (d.partes || []).map(p => `<path d="${p.d}" fill="${p.cor}"/>`).join('') +
+        (d.riscas ? `<path d="${d.riscas}" fill="none" stroke="${c.riscas}" stroke-width="1.4" stroke-linecap="round"/>` : '') +
+        (d.pontos || []).map(p => `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${p.r.toFixed(2)}" fill="${c.pontos}"/>`).join('');
+    } else {
+      svg.innerHTML = `<path d="${d.contorno}" ${traco(1)}/>` + (d.partes || []).map(p => `<path d="${p.d}" ${traco(1)}/>`).join('') +
+        (d.nervura ? `<path d="${d.nervura}" ${traco(.8)}/>` : '') + (d.laterais ? `<path d="${d.laterais}" ${traco(.6, ' opacity=".75"')}/>` : '') +
+        (d.riscas ? `<path d="${d.riscas}" ${traco(.6, ' opacity=".75"')}/>` : '') +
+        (d.pontos || []).map(p => `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${p.r.toFixed(2)}" fill="${cor}" opacity=".8"/>`).join('');
+    }
     try {
-      const b = svg.getBBox(), m = 3;
+      // a caixa só da folha (as manchas recortadas da versão rara não contam)
+      const so = [...svg.querySelectorAll('[data-caixa]')].map(e => e.getBBox());
+      const b = so.length ? so.reduce((a, x) => { const x1 = Math.min(a.x, x.x), y1 = Math.min(a.y, x.y); return { x: x1, y: y1, width: Math.max(a.x + a.width, x.x + x.width) - x1, height: Math.max(a.y + a.height, x.y + x.height) - y1 }; }) : svg.getBBox();
+      const m = 3;
       if (b.width) svg.setAttribute('viewBox', `${f(b.x - m)} ${f(b.y - m)} ${f(b.width + 2 * m)} ${f(b.height + 2 * m)}`);
     } catch (e) { /* fuori dalla pagina: resta la scatola intera */ }
   }

@@ -1,12 +1,13 @@
 // Guarda o app no telefone para funcionar sem internet.
 // Ao publicar uma versão nova, mude o número abaixo.
-const VERSAO = 'rotina-v9';
-const ARQUIVOS = ['./', 'index.html', 'estilo.css', 'temas/mista.css', 'piante.js', 'folhas.js', 'cadeado.js', 'instalar.js', 'app.js', 'dados.cifrados.json',
+const VERSAO = 'rotina-v10';
+const ARQUIVOS = ['./', 'index.html', 'estilo.css', 'temas/mista.css', 'piante.js', 'folhas.js', 'visino.js', 'dicas.js', 'cadeado.js', 'instalar.js', 'app.js', 'dados.cifrados.json',
   'manifest.webmanifest', 'icones/icone-180.png', 'icones/icone-192.png', 'icones/icone-512.png'];
 const FONTES = ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSAO).then(c => c.addAll(ARQUIVOS)).then(() => self.skipWaiting()));
+  // «reload»: busca na rede de verdade, nunca a cópia velha que o navegador guardou
+  e.waitUntil(caches.open(VERSAO).then(c => c.addAll(ARQUIVOS.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -33,7 +34,7 @@ self.addEventListener('fetch', e => {
   // o resto: responde com a cópia guardada e, por trás, busca a versão mais nova para a próxima vez
   e.respondWith(caches.open(VERSAO).then(async c => {
     const guardado = await c.match(e.request, { ignoreSearch: true });
-    const rede = fetch(e.request).then(r => {
+    const rede = fetch(new Request(e.request.url, { cache: 'no-cache' })).then(r => {
       if (r.ok) c.put(e.request, r.clone());
       return r;
     }).catch(() => guardado);

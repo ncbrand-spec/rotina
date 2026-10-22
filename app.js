@@ -28,7 +28,7 @@ const CHAVE = 'rotina-skincare-v1';
 function novoEstado() {
   const produtos = {};
   for (const p of PRODUTOS) produtos[p.id] = { estado: p.inicial };
-  return { versao: 1, produtos, feitos: {}, completos: {}, diario: [], spf: {}, adiados: {} };
+  return { versao: 1, produtos, feitos: {}, completos: {}, estufa: { semanas: [], meses: [] }, diario: [], spf: {}, adiados: {} };
 }
 
 function carregar() {
@@ -37,7 +37,7 @@ function carregar() {
     if (t) {
       const s = JSON.parse(t);
       for (const p of PRODUTOS) if (!s.produtos[p.id]) s.produtos[p.id] = { estado: p.inicial };
-      s.feitos = s.feitos || {}; s.completos = s.completos || {}; s.diario = s.diario || []; s.spf = s.spf || {}; s.adiados = s.adiados || {};
+      s.feitos = s.feitos || {}; s.completos = s.completos || {}; s.estufa = s.estufa || { semanas: [], meses: [] }; s.diario = s.diario || []; s.spf = s.spf || {}; s.adiados = s.adiados || {};
       return s;
     }
   } catch (e) { /* começa do zero */ }
@@ -175,7 +175,7 @@ function acoesDeHoje() {
 }
 
 // ---------- tela ----------
-const vista = { aba: 'hoje', dia: HOJE, mes: HOJE.slice(0, 7), abertos: {}, form: { sintomas: [], produto: '', nota: '' }, resultado: null, desde: null };
+const vista = { aba: 'hoje', dia: HOJE, mes: HOJE.slice(0, 7), abertos: {}, form: { sintomas: [], produto: '', nota: '' }, resultado: null, desde: null, dica: 0, festa: null };
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -199,7 +199,7 @@ const DECOR = document.documentElement.dataset;
 const cachePlantas = {};
 function plantas(raiz) {
   raiz.querySelectorAll('svg[data-pianta], svg[data-folha]').forEach(svg => {
-    const k = ['pianta', 'folha', 'stile', 'vaso', 'appeso', 'colore'].map(a => svg.dataset[a]).join('|');
+    const k = ['pianta', 'folha', 'stile', 'vaso', 'appeso', 'colore', 'variegata'].map(a => svg.dataset[a]).join('|');
     if (!cachePlantas[k]) {
       if (svg.dataset.folha && window.Folhas) Folhas.riempi(svg);
       else if (svg.dataset.pianta && window.Piante) Piante.riempi(svg);
@@ -235,9 +235,9 @@ const prateleira = () => DECOR.plantasRodape ? `<div class="prateleira">${DECOR.
 function render() {
   const mesmaAba = render.ultimaAba === vista.aba;
   const y = window.scrollY;
-  const telas = { hoje: telaHoje, produtos: telaProdutos, calendario: telaCalendario, diario: telaDiario, guia: telaGuia };
+  const telas = { hoje: telaHoje, estufa: telaEstufa, produtos: telaProdutos, calendario: telaCalendario, diario: telaDiario, guia: telaGuia };
   const tela = document.getElementById('tela');
-  tela.innerHTML = telas[vista.aba]();
+  tela.innerHTML = telas[vista.aba]() + (vista.festa ? festaHTML() : '');
   plantas(tela);
   document.querySelectorAll('#abas button').forEach(b => b.setAttribute('aria-current', b.dataset.aba === vista.aba ? 'page' : 'false'));
   window.scrollTo(0, mesmaAba ? y : 0);
@@ -267,6 +267,7 @@ function telaHoje() {
     <p class="saudacao">${ehHoje ? `<b>${saudacao()}</b> ` : ''}${esc(resumo(d))}</p>
     ${ehHoje ? '' : '<button class="link" data-acao="irHoje">Voltar para hoje</button>'}
   </header>`;
+  if (ehHoje && window.Visino) h += falaHTML();
   h += semana(d);
   if (fase) h += `<button class="fase${fase.viagem ? ' fase-sol' : ''}" data-acao="aba" data-aba="calendario">
       ${folhaDaFase()}
@@ -542,6 +543,189 @@ function telaDiario() {
 
 const chip = (s, on, alerta) => `<button class="chip${on ? ' on' : ''}${alerta ? ' alerta' : ''}" data-acao="sintoma" data-s="${esc(s)}" aria-pressed="${on}">${esc(s)}</button>`;
 
+// ---------- o Visinho fala ----------
+const numeroDoDia = d => difDias('2026-01-01', d);
+
+function falaDoVisinho() {
+  const meta = metaDaSemana(HOJE), seq = seguidos(), h = new Date().getHours();
+  const carinho = CARINHOS[(numeroDoDia(HOJE) + vista.dica) % CARINHOS.length];
+  const reagiu = S.diario.some(r => r.dia === HOJE && r.sintomas.some(x => SINTOMAS_ALERTA.includes(x)));
+  if (reagiu) return { estado: 'cuidado', texto: '<b>Vi no diário que a pele reagiu hoje.</b> Vá com calma: nada de produto novo e, se não passar, fale com a dermatologista.' };
+  if (meta.feitos === 7) return { estado: 'semana', texto: '<b>Semana perfeita!</b> A sua Estufa ganhou um presente.' };
+  if (diaCompleto(HOJE)) return { estado: 'feliz', texto: `<b>Dia completo!</b> ${meta.feitos} de 7 nesta semana. ${carinho}` };
+  if (emViagem(HOJE)) return { estado: 'sol', texto: `<b>Modo ${esc(VIAGEM.lugar)}!</b> Chapéu, sombra e protetor reaplicado a cada 2 horas ao ar livre.` };
+  if (h >= 19) return { estado: 'noite', texto: `<b>Hora da rotina da noite.</b> ${carinho}` };
+  return { estado: 'dica', texto: `<b>${carinho}</b>${seq > 1 ? ` Já são ${seq} dias seguidos!` : ''}` };
+}
+
+function falaHTML() {
+  const f = falaDoVisinho();
+  const dica = DICAS[(numeroDoDia(HOJE) + vista.dica) % DICAS.length];
+  return `<div class="fala">${Visino.desenha(f.estado)}<div class="balao">
+    <p class="fala-msg">${f.texto}</p>
+    <p class="fala-dica"><em>Dica do dia:</em> ${esc(dica)}</p>
+    <button class="fala-outra" data-acao="outraDica">Outra dica →</button>
+  </div></div>`;
+}
+
+// ---------- a Estufa: um prêmio para cada semana perfeita, para sempre ----------
+// Fase 1: 28 plantas novas. Fase 2: cada planta cresce (muda → adulta → florida). Fase 3: versões raras, sem fim.
+const CATALOGO = [
+  { tipo: 'muda', folha: 'alocasia-polly', nome: 'Alocasia Polly' },
+  { tipo: 'planta', pianta: 'monstera', vaso: 'giallo', nome: 'Costela-de-adão' },
+  { tipo: 'planta', pianta: 'begonia', vaso: 'crema', nome: 'Begônia maculata' },
+  { tipo: 'muda', folha: 'alocasia-frydek', nome: 'Alocasia Frydek' },
+  { tipo: 'planta', pianta: 'alocasia', vaso: 'malva', nome: 'Alocásia' },
+  { tipo: 'muda', folha: 'anturio', nome: 'Antúrio' },
+  { tipo: 'planta', pianta: 'filodendro', vaso: 'crema', nome: 'Filodendro Brasil' },
+  { tipo: 'muda', folha: 'pilea', nome: 'Pilea' },
+  { tipo: 'planta', pianta: 'stromanthe', vaso: 'terracotta', nome: 'Maranta Triostar' },
+  { tipo: 'muda', folha: 'alocasia-zebrina', nome: 'Alocasia Zebrina' },
+  { tipo: 'muda', folha: 'caladium', nome: 'Caladium' },
+  { tipo: 'planta', pianta: 'ceropegia', nome: 'Ceropegia' },
+  { tipo: 'muda', folha: 'begonia-rex', nome: 'Begônia rex' },
+  { tipo: 'muda', folha: 'monstera-adansonii', nome: 'Monstera adansonii' },
+  { tipo: 'planta', pianta: 'senecio', nome: 'Senécio' },
+  { tipo: 'muda', folha: 'ginkgo', nome: 'Ginkgo' },
+  { tipo: 'muda', folha: 'samambaia', nome: 'Samambaia' },
+  { tipo: 'muda', folha: 'bananeira', nome: 'Bananeira' },
+  { tipo: 'muda', folha: 'bordo', nome: 'Bordo' },
+  { tipo: 'muda', folha: 'carvalho', nome: 'Carvalho' },
+  { tipo: 'muda', folha: 'figueira', nome: 'Figueira' },
+  { tipo: 'muda', folha: 'palmeira', nome: 'Palmeira-leque' },
+  { tipo: 'muda', folha: 'oliveira', nome: 'Oliveira' },
+  { tipo: 'muda', folha: 'foglia-monstera', nome: 'Muda de costela-de-adão' },
+  { tipo: 'muda', folha: 'foglia-alocasia', nome: 'Muda de alocásia' },
+  { tipo: 'muda', folha: 'foglia-filodendro', nome: 'Muda de filodendro' },
+  { tipo: 'muda', folha: 'foglia-stromanthe', nome: 'Muda de maranta' },
+  { tipo: 'muda', folha: 'foglia-begonia', nome: 'Muda de begônia' }
+];
+const ESTAGIOS = ['Muda', 'Adulta', 'Florida'];
+const RARAS_PLANTA = ['dourado', 'cobalto', 'rosa'];
+const RARAS_MUDA = ['variegata', 'dourado', 'cobalto', 'rosa'];
+const NOMES_RARA = { variegata: 'folhas variegatas', dourado: 'vaso dourado', cobalto: 'vaso de cerâmica azul', rosa: 'vaso rosa' };
+const RARA_CURTO = { variegata: 'variegata', dourado: 'dourada', cobalto: 'azul', rosa: 'rosa' };
+const VASOS_MUDA = ['crema', 'terracotta', 'giallo', 'malva'];
+const COR_VASO = { crema: ['#f3e4c8', '#e8d5b2'], terracotta: ['#c87a54', '#b86a46'], giallo: ['#fec340', '#f2b324'], malva: ['#b58aa9', '#a57898'],
+  dourado: ['#d9a520', '#c18e12'], cobalto: ['#2f5d9e', '#244d86'], rosa: ['#e8a1b3', '#d98aa0'] };
+const rarasDe = p => (p.tipo === 'muda' && !p.folha.startsWith('foglia-')) ? RARAS_MUDA : RARAS_PLANTA;
+
+function semanasPerfeitas() {
+  const segundas = new Set(Object.keys(S.completos).filter(diaCompleto).map(segundaDaSemana));
+  return [...segundas].filter(seg => metaDaSemana(seg).feitos === 7).sort();
+}
+
+function mesesPerfeitos() {
+  const meses = new Set(Object.keys(S.completos).filter(diaCompleto).map(d => d.slice(0, 7)));
+  return [...meses].filter(m => {
+    const [a, mm] = m.split('-').map(Number);
+    for (let i = 1; i <= new Date(a, mm, 0).getDate(); i++) if (!diaCompleto(`${m}-${String(i).padStart(2, '0')}`)) return false;
+    return true;
+  }).sort();
+}
+
+// o que já foi ganho fica ganho, mesmo se depois uma marcação for desfeita
+function verificarPremios() {
+  const semanas = semanasPerfeitas().filter(x => !S.estufa.semanas.includes(x));
+  const meses = mesesPerfeitos().filter(x => !S.estufa.meses.includes(x));
+  S.estufa.semanas.push(...semanas);
+  S.estufa.meses.push(...meses);
+  return { semanas, meses };
+}
+
+// como está cada planta depois de N semanas perfeitas
+function estadoDaEstufa(N) {
+  const T = CATALOGO.length;
+  const plantas = CATALOGO.map((p, i) => ({ ...p, i, ganha: i < N, estagio: 0, rara: null }));
+  for (let s = 0; s < Math.min(Math.max(N - T, 0), 2 * T); s++) plantas[s % T].estagio = 1 + Math.floor(s / T);
+  for (let k = 0; k < Math.max(N - 3 * T, 0); k++) { const p = plantas[k % T]; const l = rarasDe(p); p.rara = l[Math.floor(k / T) % l.length]; }
+  return plantas;
+}
+
+// o prêmio da n-ésima semana perfeita (1, 2, 3…)
+function premioNumero(n) {
+  const T = CATALOGO.length, k = n - 1;
+  if (k < T) return { tipo: 'nova', i: k };
+  if (k < 3 * T) return { tipo: 'crescer', i: (k - T) % T, estagio: 1 + Math.floor((k - T) / T) };
+  const r = k - 3 * T, l = rarasDe(CATALOGO[r % T]);
+  return { tipo: 'rara', i: r % T, rara: l[Math.floor(r / T) % l.length] };
+}
+
+const flor = (x, y, cor) => [0, 72, 144, 216, 288].map(g => `<circle cx="${(x + 6 * Math.sin(g * Math.PI / 180)).toFixed(1)}" cy="${(y - 6 * Math.cos(g * Math.PI / 180)).toFixed(1)}" r="5" fill="${cor}"/>`).join('') + `<circle cx="${x}" cy="${y}" r="3.6" fill="#fec340"/>`;
+
+function artePlanta(p, silhueta = false) {
+  const vaso = p.rara && p.rara !== 'variegata' ? p.rara : (p.vaso || VASOS_MUDA[p.i % VASOS_MUDA.length]);
+  let arte;
+  if (p.tipo === 'planta') arte = `<svg class="arte-planta" data-pianta="${p.pianta}" data-stile="colore" data-vaso="${vaso}"></svg>`;
+  else {
+    const [corpo, borda] = COR_VASO[vaso];
+    const folha = p.folha.startsWith('foglia-') ? `data-pianta="${p.folha}" data-stile="colore"` : `data-folha="${p.folha}" data-stile="colore"${p.rara === 'variegata' ? ' data-variegata="si"' : ''}`;
+    arte = `<span class="muda"><svg class="muda-folha" ${folha}></svg><svg class="muda-vaso" viewBox="0 0 60 34" aria-hidden="true"><path d="M8 8H52L46 32H14Z" fill="${corpo}"/><rect x="4" y="3" width="52" height="9" rx="3" fill="${borda}"/></svg></span>`;
+  }
+  const flores = p.estagio >= 2 ? `<svg class="flores" viewBox="0 0 100 40" aria-hidden="true">${flor(22, 24, '#b61e42')}${flor(50, 12, '#ffffff')}${flor(78, 24, '#e8a1b3')}</svg>` : '';
+  return `<span class="arte estagio-${p.estagio}${p.rara ? ' rara' : ''}${silhueta ? ' silhueta' : ''}">${arte}${flores}${p.rara && !silhueta ? '<span class="brilho-raro" aria-hidden="true">✦</span>' : ''}</span>`;
+}
+
+function terrario() {
+  return `<svg class="terrario" viewBox="0 0 120 140" aria-hidden="true">
+    <ellipse cx="60" cy="132" rx="46" ry="6" fill="rgba(36,24,30,.12)"/>
+    <path d="M24 124V72a36 36 0 0 1 72 0v52Z" fill="#dff0ec" fill-opacity=".7" stroke="#24181e" stroke-width="3"/>
+    <path d="M26 112q34 -12 68 0v12H26Z" fill="#7a5a3a"/>
+    <path d="M44 110c-2-14 4-24 14-28c-2 12-6 20-14 28Z" fill="#4f9a5e"/><path d="M60 108c2-18 12-26 24-26c-4 14-12 22-24 26Z" fill="#86c38a"/>
+    <path d="M52 110c-10-6-16-14-14-24c8 4 12 12 14 24Z" fill="#2c7a4b"/><circle cx="76" cy="104" r="4" fill="#b61e42"/>
+    <path d="M34 76c2-12 10-20 22-22" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".7"/>
+    <rect x="18" y="122" width="84" height="10" rx="4" fill="#c87a54" stroke="#24181e" stroke-width="3"/>
+    <circle cx="60" cy="33" r="6" fill="#fec340" stroke="#24181e" stroke-width="3"/></svg>`;
+}
+
+function telaEstufa() {
+  const N = S.estufa.semanas.length, T = CATALOGO.length, plantas = estadoDaEstufa(N);
+  const fase = N < T ? 1 : N < 3 * T ? 2 : 3;
+  const textoFase = fase === 1 ? `Fase 1 · Coleção: ${N} de ${T} plantas` : fase === 2 ? `Fase 2 · Crescer: ${N - T} de ${2 * T}` : `Fase 3 · Raras: ${N - 3 * T} até agora`;
+  const pct = fase === 1 ? N / T : fase === 2 ? (N - T) / (2 * T) : 1;
+  const prox = premioNumero(N + 1), pp = CATALOGO[prox.i];
+  const proxTexto = prox.tipo === 'nova' ? `Na próxima semana perfeita chega: <b>${pp.nome}</b>.` : prox.tipo === 'crescer' ? `Na próxima semana perfeita, <b>${pp.nome}</b> ${prox.estagio === 1 ? 'cresce' : 'floresce'}.` : `Na próxima semana perfeita, <b>${pp.nome}</b> fica rara.`;
+  let h = `<header class="topo"><p class="sobre">A sua coleção</p><h1>Estufa</h1></header>
+  <div class="fala">${Visino.desenha(N ? 'feliz' : 'dica')}<div class="balao"><p class="fala-msg"><b>${N === 0 ? 'A sua Estufa está esperando a primeira planta.' : `${N} ${N === 1 ? 'semana perfeita' : 'semanas perfeitas'}!`}</b> ${proxTexto}</p></div></div>
+  <section class="cartao estufa-fase"><strong>${textoFase}</strong><div class="meta-barra"><i style="width:${(pct * 100).toFixed(1)}%"></i></div>
+    <p>Uma semana perfeita = 7 de 7 dias com manhã e noite completas. Depois das 28 plantas, elas crescem; depois, ficam raras.</p></section>
+  <section class="prateleiras">`;
+  for (const p of plantas) {
+    const proxima = !p.ganha && p.i === N;
+    h += `<div class="slot${p.ganha ? '' : ' travado'}${proxima ? ' proxima' : ''}">${artePlanta(p, !p.ganha)}
+      <span class="slot-nome">${p.ganha ? esc(p.nome) : proxima ? 'A próxima!' : `Semana ${p.i + 1}`}</span>
+      ${p.ganha ? `<span class="slot-tag${p.rara ? ' rara' : ''}">${p.rara ? 'Rara · ' + RARA_CURTO[p.rara] : ESTAGIOS[p.estagio]}</span>` : ''}</div>`;
+  }
+  h += `</section><section class="grupo"><h2>Prêmios do mês</h2><div class="prateleiras">`;
+  h += S.estufa.meses.length
+    ? S.estufa.meses.map(m => `<div class="slot"><span class="arte">${terrario()}</span><span class="slot-nome">Terrário de ${MESES[Number(m.slice(5, 7)) - 1]}</span><span class="slot-tag">Mês perfeito</span></div>`).join('')
+    : `<div class="slot travado"><span class="arte silhueta">${terrario()}</span><span class="slot-nome">Um mês inteiro</span></div>`;
+  return h + '</div></section>';
+}
+
+// ---------- a festa da semana (e do mês) perfeita ----------
+function festaHTML() {
+  const { semanas, meses } = vista.festa, N = S.estufa.semanas.length;
+  let premios = '';
+  semanas.forEach((_, j) => {
+    const n = N - semanas.length + j + 1, pr = premioNumero(n), p = estadoDaEstufa(n)[pr.i];
+    const legenda = pr.tipo === 'nova' ? 'Nova na sua Estufa' : pr.tipo === 'crescer' ? (pr.estagio === 1 ? 'Cresceu: agora é adulta' : 'Floresceu!') : `Ficou rara: ${NOMES_RARA[pr.rara]}`;
+    premios += `<div class="premio">${artePlanta(p)}<b>${esc(p.nome)}</b><span>${legenda}</span></div>`;
+  });
+  meses.forEach(m => { premios += `<div class="premio"><span class="arte">${terrario()}</span><b>Terrário de ${MESES[Number(m.slice(5, 7)) - 1]}</b><span>Prêmio do mês perfeito</span></div>`; });
+  const titulo = semanas.length ? 'Semana perfeita!' : 'Mês perfeito!';
+  const texto = semanas.length ? '7 de 7 dias, manhã e noite. Sua pele agradece, e eu também!' : 'Todos os dias do mês completos. Que orgulho!';
+  const cores = ['#4f9a5e', '#b61e42', '#fec340', '#b58aa9', '#0a5b58'];
+  const confete = ['ginkgo', 'pilea', 'bordo', 'figueira', 'oliveira', 'caladium', 'anturio', 'samambaia']
+    .map((f, i) => `<svg class="confete c${i}" data-folha="${f}" data-colore="${cores[i % cores.length]}" data-tratto="1.6"></svg>`).join('');
+  return `<div class="festa" role="dialog" aria-label="${titulo}"><div class="festa-caixa">${confete}
+    ${Visino.desenha('semana', 'festa-visino')}
+    <h2>${titulo}</h2><p>${texto}</p>
+    <div class="premios">${premios}</div>
+    <div class="botoes"><button class="botao" data-acao="verEstufa">Ver minha Estufa</button><button class="botao leve" data-acao="fecharFesta">Fechar</button></div>
+  </div></div>`;
+}
+
 // ---------- Guia ----------
 function telaGuia() {
   let h = `<header class="topo"><p class="sobre">Guia</p><h1>Regras e dicas</h1></header><section class="grupo guia-dicas">`;
@@ -589,12 +773,18 @@ const ACOES = {
     S.feitos[d] = S.feitos[d] || {}; S.feitos[d][t] = S.feitos[d][t] || {};
     if (S.feitos[d][t][id]) delete S.feitos[d][t][id]; else S.feitos[d][t][id] = true;
     registrarDia(d);
+    const novos = verificarPremios();
+    if (novos.semanas.length || novos.meses.length) vista.festa = novos;
     salvar(); render();
+    if (vista.festa) return;
     if (diaCompleto(d) && !antes) {
       const m = metaDaSemana(d);
       toast(m.feitos === 7 ? 'Semana perfeita! 7 de 7 ✓' : `Dia completo! ${m.feitos} de 7 na semana ✓`);
     } else if (progresso(d, t).completo && S.feitos[d][t][id]) toast(t === 'manha' ? 'Manhã completa ✓' : 'Noite completa ✓');
   },
+  outraDica: () => { vista.dica++; render(); },
+  verEstufa: () => { vista.festa = null; vista.aba = 'estufa'; render(); },
+  fecharFesta: () => { vista.festa = null; render(); },
   comecar: el => comecar(el.dataset.id, HOJE),
   desde: el => { vista.desde = el.dataset.id; render(); },
   testeOk: el => { const e = E(el.dataset.id); e.estado = 'introduzindo'; e.nivel = 0; e.nivelDesde = HOJE; salvar(); render(); toast('Combinado: começa devagar.'); },
@@ -732,6 +922,7 @@ document.addEventListener('visibilitychange', () => {
 
 // os dias marcados antes do contador existir também contam
 for (const d of Object.keys(S.feitos)) if (!S.completos[d] && d <= HOJE) registrarDia(d);
+verificarPremios();
 render();
 // quando chega uma versão nova do app, recarrega uma vez sozinho para mostrá-la logo
 if ('serviceWorker' in navigator && location.protocol === 'https:') {

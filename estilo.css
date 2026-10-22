@@ -318,3 +318,54 @@ body.trancado #abas { display: none; }
 .produto .botoes { margin-top: 12px; }
 .produto .botao { min-height: 44px; padding: 0 18px; font-size: 14px; }
 .cel .pontos i:not(.cheio):not(.meio) { background: transparent; }
+
+/* ---------- computer: menu a sinistra, contenuti su più colonne ---------- */
+#abas .marca, #abas .abas-pianta { display: none; }
+
+@media (min-width: 960px) {
+  :root { --lateral: 248px; }
+  #abas {
+    top: 0; right: auto; width: var(--lateral);
+    display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+    padding: 36px 20px 24px; border-top: 0; border-right: 1px solid var(--linha);
+  }
+  #abas .marca { display: block; font: 600 32px/1.1 var(--f-titulo); margin: 0 12px 28px; }
+  #abas button { flex-direction: row; justify-content: flex-start; gap: 14px; min-height: 52px; padding: 0 16px; font-size: 16px; font-weight: 500; border-radius: 999px; }
+  #abas button .ic { width: 24px; height: 24px; padding: 0; border-radius: 0; background: none; box-shadow: none; }
+  #abas button[aria-current="page"] { background: var(--destaque); font-weight: 600; }
+  #abas button[aria-current="page"] .ic { background: none; box-shadow: none; }
+  #abas .abas-pianta { display: block; margin-top: auto; align-self: center; width: 132px; height: 168px; }
+
+  #tela { max-width: none; margin: 0 0 0 var(--lateral); padding: 40px max(48px, calc((100vw - var(--lateral) - 1100px) / 2)) 64px; }
+  #aviso { left: calc(50% + var(--lateral) / 2); bottom: 32px; }
+  .topo h1 { font-size: 48px; }
+
+  .tela-hoje { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 32px; align-items: start; }
+  .tela-hoje > .testata { grid-column: 1 / -1; min-height: 176px; margin-bottom: 24px; }
+  .tela-hoje .planta-appesa { top: -40px; right: 24px; width: 124px; height: 236px; }
+  .data { font-size: 60px; max-width: none; }
+  .saudacao { font-size: 19px; max-width: 640px; }
+  .tela-hoje > .semana { grid-column: 1 / -1; margin-bottom: 32px; }
+  .tela-hoje > .semana .dia { min-height: 80px; }
+  .tela-hoje > .fase { grid-column: 1; margin: 0; align-self: stretch; }
+  .tela-hoje:not(:has(.acoes)) > .fase { grid-column: 1 / -1; }
+  .tela-hoje > .acoes { grid-column: 2; display: flex; flex-direction: column; gap: 24px; }
+  .tela-hoje > .acoes .cartao { margin: 0; }
+  .tela-hoje > .turno-manha { grid-column: 1; }
+  .tela-hoje > .turno-noite { grid-column: 2; }
+  .tela-hoje > .prateleira { grid-column: 1 / -1; }
+
+  .grupo-produtos { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; align-items: start; }
+  .grupo-produtos > h2 { grid-column: 1 / -1; margin: 0; }
+  .grupo-produtos .produto { margin: 0; }
+
+  .cal-grade { display: grid; grid-template-columns: 420px minmax(0, 1fr); gap: 56px; align-items: start; }
+  .cal-grade .mes { position: sticky; top: 40px; }
+  .cal-grade > .grupo { margin-top: 0; }
+
+  .diario-grade { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+  .diario-grade .grupo { margin-top: 0; }
+
+  .guia-dicas { columns: 2; column-gap: 56px; }
+  .guia-dicas .dica { break-inside: avoid; }
+}

@@ -30,3 +30,9 @@ select, textarea { border: 2px solid var(--tinta); background: var(--carta); }
 
 #abas { background: var(--carta); border-top: 2px solid var(--tinta); -webkit-backdrop-filter: none; backdrop-filter: none; }
 #abas button[aria-current="page"] .ic { box-shadow: inset 0 0 0 2px var(--tinta); }
+
+@media (min-width: 960px) {
+  #abas { border-top: 0; border-right: 2px solid var(--tinta); }
+  #abas button[aria-current="page"] .ic { box-shadow: none; }
+  #abas button[aria-current="page"] { box-shadow: inset 0 0 0 2px var(--tinta), 3px 3px 0 var(--tinta); }
+}

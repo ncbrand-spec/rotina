@@ -229,7 +229,7 @@ function resumo(d) {
 function telaHoje() {
   const d = vista.dia, ehHoje = d === HOJE, dd = deISO(d);
   const fase = faseDe(d);
-  let h = `<header class="testata">
+  let h = `<div class="tela-hoje"><header class="testata">
     ${plantaAppesa()}
     <p class="giorno">${ehHoje ? DIAS_SEMANA[dd.getDay()] : (d < HOJE ? 'Dia passado · ' : 'Dia futuro · ') + DIAS_SEMANA[dd.getDay()]}</p>
     <h1 class="data"><span class="sublinhado">${dd.getDate()} de ${MESES[dd.getMonth()]}</span></h1>
@@ -244,9 +244,10 @@ function telaHoje() {
       <span class="fase-obj">${esc(fase.objetivo)}${fase.ate ? ` <em>Até ${fmtDiaMes(fase.ate)}.</em>` : ''}</span>
       ${folhaDaVez ? `<span class="fase-folha">Folha de hoje · ${esc(nomeDaFolha(folhaDaVez))}</span>` : ''}
     </button>`;
-  if (ehHoje) h += acoesDeHoje().map(cartaoAcao).join('');
+  const acoes = ehHoje ? acoesDeHoje().map(cartaoAcao).join('') : '';
+  if (acoes) h += `<div class="acoes">${acoes}</div>`;
   h += turno('manha', d) + turno('noite', d);
-  return h + prateleira();
+  return h + prateleira() + '</div>';
 }
 
 function semana(d) {
@@ -388,7 +389,7 @@ function telaProdutos() {
   for (const [nome, filtro] of grupos) {
     const lista = PRODUTOS.filter(filtro);
     if (!lista.length) continue;
-    h += `<section class="grupo"><h2>${nome}</h2>${lista.map(cartaoProduto).join('')}</section>`;
+    h += `<section class="grupo grupo-produtos"><h2>${nome}</h2>${lista.map(cartaoProduto).join('')}</section>`;
   }
   return h;
 }
@@ -440,7 +441,7 @@ function telaCalendario() {
   const diasNoMes = new Date(a, m, 0).getDate();
   const vazio = (deISO(primeiro).getDay() + 6) % 7;
   let h = `<header class="topo"><p class="sobre">Calendário</p><h1>O plano</h1></header>
-  <section class="mes"><div class="mes-topo">
+  <div class="cal-grade"><section class="mes"><div class="mes-topo">
     <button class="seta" data-acao="mes" data-n="-1" aria-label="Mês anterior">${icone('esq')}</button>
     <h2>${MESES[m - 1]} ${a}</h2>
     <button class="seta" data-acao="mes" data-n="1" aria-label="Próximo mês">${icone('dir')}</button>
@@ -466,14 +467,15 @@ function telaCalendario() {
       <p class="obj"><strong>Objetivo:</strong> ${esc(f.objetivo)}</p>
     </li>`;
   }
-  return h + '</ol></section>';
+  return h + '</ol></section></div>';
 }
 
 // ---------- Diário ----------
 function telaDiario() {
   const fm = vista.form;
   const candidatos = PRODUTOS.filter(p => ['introduzindo', 'teste', 'em_uso'].includes(E(p.id).estado) && !p.gesto);
-  let h = `<header class="topo"><p class="sobre">Diário da pele</p><h1>Como está a pele?</h1></header>${vista.resultado || ''}
+  let h = `<header class="topo"><p class="sobre">Diário da pele</p><h1>Como está a pele?</h1></header>
+  <div class="diario-grade"><div class="diario-col">${vista.resultado || ''}
   <section class="cartao form-diario">
     <p class="rotulo">Hoje a pele está</p>
     <div class="chips">${SINTOMAS_LEVES.map(s => chip(s, fm.sintomas.includes(s), false)).join('')}</div>
@@ -484,7 +486,7 @@ function telaDiario() {
     <label class="rotulo" for="nota">Anotação</label>
     <textarea id="nota" data-campo="nota" rows="3" placeholder="Ex.: olheiras mais claras, pele seca no queixo…">${esc(fm.nota)}</textarea>
     <button class="botao largo" data-acao="salvarDiario">Salvar no diário</button>
-  </section>`;
+  </section></div><div class="diario-col">`;
   const lista = [...S.diario].sort((a, b) => b.criado - a.criado);
   if (lista.length) {
     h += '<section class="grupo"><h2>Anotações</h2>';
@@ -497,14 +499,14 @@ function telaDiario() {
     }
     h += '</section>';
   }
-  return h;
+  return h + '</div></div>';
 }
 
 const chip = (s, on, alerta) => `<button class="chip${on ? ' on' : ''}${alerta ? ' alerta' : ''}" data-acao="sintoma" data-s="${esc(s)}" aria-pressed="${on}">${esc(s)}</button>`;
 
 // ---------- Guia ----------
 function telaGuia() {
-  let h = `<header class="topo"><p class="sobre">Guia</p><h1>Regras e dicas</h1></header><section class="grupo">`;
+  let h = `<header class="topo"><p class="sobre">Guia</p><h1>Regras e dicas</h1></header><section class="grupo guia-dicas">`;
   for (const g of GUIA) h += `<article class="dica${g.destaque ? ' destaque' : ''}"><h3>${esc(g.titulo)}</h3><p>${esc(g.texto)}</p></article>`;
   h += `</section><section class="grupo"><h2>${esc(TEXTOS.etapasTitulo)}</h2><ol class="etapas">`;
   ETAPAS.forEach((c, i) => {

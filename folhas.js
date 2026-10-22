@@ -156,8 +156,147 @@
         c += curva(foliolo(pb, pg, 20, 3.6), true);
         return { contorno: c, nervura: caule(P), laterais: n };
       }
+    },
+
+    // ---------- a coleção de casa: alocásias, begônia, adansonii, pilea, caladium, antúrio ----------
+    'alocasia-polly': {
+      nome: 'Alocasia Polly',
+      desenha() {
+        // borda em «ondas»: os vales (quinas) são onde chegam as nervuras brancas
+        const esq = [[40, 13], [36.5, 21, 1], [29, 26], [26.5, 35, 1], [19, 41], [19, 50, 1], [13, 57], [16, 66, 1], [12, 74], [18, 81, 1], [17, 90], [21, 99], [26, 108, 1], [34, 101], [42, 91], [47, 85]];
+        const contorno = sagitada(esq, 6, 82);
+        const vales = esq.filter(p => p[2]).slice(0, 5);
+        const veias = vales.map(([x, y]) => [pt(50, y + 10), pt(50 - (50 - x) * .55, y + 2), pt(x + 1.5, y + .5)]);
+        const nerv = [curva([pt(50, 82), pt(50, 40), pt(50, 9)]), ...espelha(veias).map(v => curva(v)), curva([pt(50, 82), pt(40, 92), pt(28, 104)]), curva([pt(50, 82), pt(60, 92), pt(72, 104)])].join('');
+        return { contorno, nervura: curva([pt(50, 128), pt(51, 104), pt(50, 82)]) + nerv };
+      }
+    },
+    'alocasia-zebrina': {
+      nome: 'Alocasia Zebrina',
+      desenha() {
+        const esq = [[44, 14], [38, 28], [33, 44], [30, 58], [29, 70], [27, 82], [20, 104, 1], [30, 96], [40, 90]];
+        const contorno = sagitada(esq, 4, 86);
+        const veias = [[22], [36], [50], [64]].map(([y]) => [pt(50, y + 8), pt(50 - (50 - borda(esq, y)) * .55, y + 2), pt(borda(esq, y) + 2.5, y - 1)]);
+        let listras = '';
+        for (let y = 92; y < 126; y += 5.5) listras += reta(pt(48.6, y + 1.6), pt(51.4, y - .6));   // o pecíolo listrado de zebra
+        return {
+          contorno, nervura: reta(pt(48.6, 86), pt(48.6, 128)) + reta(pt(51.4, 86), pt(51.4, 128)) + curva([pt(50, 86), pt(50, 40), pt(50, 7)]),
+          laterais: espelha(veias).map(v => curva(v)).join('') + curva([pt(50, 86), pt(36, 92), pt(23, 101)]) + curva([pt(50, 86), pt(64, 92), pt(77, 101)]) + listras
+        };
+      }
+    },
+    'alocasia-frydek': {
+      nome: 'Alocasia Frydek',
+      desenha() {
+        const esq = [[43, 12], [35, 24], [27, 38], [21, 52], [18, 64], [18, 76], [21, 88], [25, 100], [28, 112, 1], [36, 104], [43, 94], [47, 88]];
+        const contorno = sagitada(esq, 4, 84);
+        // nervuras largas e claras: cada uma desenhada como faixa de duas linhas
+        const faixa = (a, b, c) => [-1.3, 1.3].map(o => curva([pt(a.x, a.y + o), pt(b.x, b.y + o), pt(c.x, c.y + o)])).join('');
+        let nerv = reta(pt(48.7, 84), pt(48.7, 8)) + reta(pt(51.3, 84), pt(51.3, 8));
+        for (const y of [24, 38, 52, 66]) {
+          const xe = borda(esq, y);
+          nerv += faixa(pt(50, y + 10), pt(50 - (50 - xe) * .5, y + 2), pt(xe + 3, y - 1)) + faixa(pt(50, y + 10), pt(50 + (50 - xe) * .5, y + 2), pt(100 - xe - 3, y - 1));
+        }
+        nerv += faixa(pt(50, 84), pt(40, 96), pt(30, 108)) + faixa(pt(50, 84), pt(60, 96), pt(70, 108));
+        return { contorno, nervura: curva([pt(50, 128), pt(51, 106), pt(50, 84)]) + nerv };
+      }
+    },
+    'begonia-rex': {
+      nome: 'Begônia rex',
+      desenha() {
+        const S = pt(44, 80);
+        const R = g => 26 + 38 * exp(-pow((g - 30) / 50, 2)) + 14 * exp(-pow((g + 100) / 45, 2));
+        const contorno = [];
+        for (let g = -170, i = 0; g <= 170; g += 10, i++) contorno.push(polar(S, g, R(g) + (i % 2 ? 2.2 : 0), i % 2 === 1 || g === 30));
+        contorno.push(polar(S, 180, 8, true));
+        const espiral = [];
+        for (let t = 0; t <= 3.5 * PI; t += .35) espiral.push(pt(S.x + (1 + t * 1.4) * cos(t), S.y + (1 + t * 1.4) * sin(t)));
+        const veias = [30, -30, 90, -95, 150, -145].map(g => curva([polar(S, g, 14), polar(S, g + 6, R(g) * .5), polar(S, g, R(g) * .82)])).join('');
+        return { contorno: curva(contorno, true), nervura: curva(espiral) + curva([pt(42, 128), pt(43, 104), polar(S, 180, 8)]), laterais: veias };
+      }
+    },
+    'monstera-adansonii': {
+      nome: 'Monstera adansonii',
+      desenha() {
+        const contorno = [pt(56, 6, true), pt(46, 12), pt(36, 24), pt(29, 40), pt(27, 58), pt(29, 76), pt(35, 92), pt(43, 104), pt(50, 110, true), pt(58, 104), pt(66, 92), pt(71, 76), pt(72, 58), pt(69, 40), pt(63, 24)];
+        // os buracos: elipses entre as nervuras, inclinadas como elas
+        const elipse = (cx, cy, rx, ry, rot) => { const q = []; for (let k = 0; k < 8; k++) { const a = k * PI / 4; const x = rx * cos(a), y = ry * sin(a); q.push(pt(cx + x * cos(rad(rot)) - y * sin(rad(rot)), cy + x * sin(rad(rot)) + y * cos(rad(rot)))); } return curva(q, true); };
+        const buracos = [[38, 36, 30], [35, 54, 24], [36, 72, 18], [41, 89, 12], [63, 38, -30], [65, 56, -24], [64, 74, -18], [59, 90, -12]].map(([x, y, r]) => elipse(x, y, 5.6, 2.5, r)).join('');
+        const lat = [[46, 29, 40], [64, 28, 60], [82, 31, 79]].map(([y, xe, y2]) => reta(pt(51, y), pt(xe, y2 - 6)) + reta(pt(51, y), pt(100 - xe + 2, y2 - 6))).join('');
+        return { contorno: curva(contorno, true) + buracos, nervura: curva([pt(50, 128), pt(50, 110), pt(52, 60), pt(56, 9)]), laterais: lat };
+      }
+    },
+    pilea: {
+      nome: 'Pilea',
+      desenha() {
+        const C = pt(50, 60), P = pt(50, 66);
+        const R = g => 40 + 2.5 * exp(-(g * g) / 80);
+        const contorno = [];
+        for (let g = -165; g <= 180; g += 15) contorno.push(polar(C, g, R(g)));
+        const veias = [0, 40, 80, 120, 160, 200, 240, 280, 320].map(g => curva([P, polar(C, g + 4, R(g) * .5), polar(C, g, R(g) - 5)])).join('');
+        return { contorno: curva(contorno, true), nervura: reta(pt(50, 100), pt(50, 128)), laterais: veias, pontos: [{ x: P.x, y: P.y, r: 1.8 }] };
+      }
+    },
+    caladium: {
+      nome: 'Caladium',
+      desenha() {
+        const esq = [[40, 14], [30, 26], [21, 42], [16, 58], [16, 72], [20, 86], [28, 98], [37, 104], [44, 100]];
+        const contorno = sagitada(esq, 6, 90);
+        const pts = [pt(50, 6), ...esq.map(([x, y]) => pt(x, y)), pt(50, 90), ...esq.slice().reverse().map(([x, y]) => pt(100 - x, y))];
+        const veias = espelha([24, 38, 52, 66].map(y => [pt(50, y + 8), pt(50 - (50 - borda(esq, y)) * .5, y + 1), pt(borda(esq, y) + 4, y - 3)])).map(v => curva(v)).join('');
+        // as pintinhas, espalhadas de um jeito sempre igual
+        let semente = 7;
+        const rnd = () => (semente = (semente * 16807) % 2147483647) / 2147483647;
+        const pontos = [];
+        while (pontos.length < 18) {
+          const q = pt(18 + rnd() * 64, 16 + rnd() * 80);
+          const folga = [[5, 0], [-5, 0], [0, 5], [0, -5]].every(([dx, dy]) => dentro(pt(q.x + dx, q.y + dy), pts));   // longe da borda
+          if (folga && abs(q.x - 50) > 4) pontos.push({ x: q.x, y: q.y, r: 1.1 + rnd() * 1.2 });
+        }
+        return { contorno, nervura: curva([pt(50, 128), pt(51, 106), pt(50, 90), pt(50, 50), pt(50, 9)]) + curva([pt(50, 90), pt(38, 94), pt(27, 90)]) + curva([pt(50, 90), pt(62, 94), pt(73, 90)]), laterais: veias, pontos };
+      }
+    },
+    anturio: {
+      nome: 'Antúrio',
+      desenha() {
+        const esq = [[40, 16], [30, 30], [22, 48], [19, 64], [22, 80], [30, 92], [40, 98], [46, 96]];
+        const contorno = sagitada(esq, 8, 90);
+        let finas = '';
+        for (const k of [-3, -2, -1, 1, 2, 3]) finas += curva([pt(50 + k * 1.2, 88), pt(50 + k * 8.5, 56), pt(50 + k * 3, 16)]);
+        // a espádice: o «pendão» que sai do centro do antúrio
+        const A = pt(51, 84), B = pt(67, 42), g = atan2(B.x - A.x, -(B.y - A.y)) * 180 / PI;
+        const M = pt((A.x + B.x) / 2, (A.y + B.y) / 2);
+        const esp = [polar(A, g - 90, 4, true), polar(M, g - 90, 4.4), polar(B, g - 90, 3.4), polar(B, g, 3.6), polar(B, g + 90, 3.4), polar(M, g + 90, 4.4), polar(A, g + 90, 4, true)];
+        const pontos = [];
+        for (let t = .15; t < .95; t += .1) for (const o of [-1.8, 1.8]) { const q = pt(A.x + (B.x - A.x) * t, A.y + (B.y - A.y) * t); pontos.push({ ...polar(q, g + 90, o), r: .7 }); }
+        return { contorno: contorno + curva(esp, true), nervura: curva([pt(50, 128), pt(51, 106), pt(50, 90)]) + curva([pt(50, 90), pt(50, 50), pt(50, 11)]), laterais: finas, pontos };
+      }
     }
   };
+
+  // folha com a ponta em cima e o seio embaixo: recebe o lado esquerdo (do alto até o seio) e espelha o direito
+  function sagitada(esq, ponta, seio) {
+    const L = esq.map(([x, y, a]) => pt(x, y, !!a));
+    const R = esq.slice().reverse().map(([x, y, a]) => pt(100 - x, y, !!a));
+    return curva([pt(50, ponta, true), ...L, pt(50, seio, true), ...R], true);
+  }
+  // x da borda esquerda na altura y (interpolando os pontos do lado esquerdo)
+  function borda(esq, y) {
+    for (let i = 0; i < esq.length - 1; i++) {
+      const [x1, y1] = esq[i], [x2, y2] = esq[i + 1];
+      if ((y - y1) * (y - y2) <= 0 && y1 !== y2) return x1 + (x2 - x1) * (y - y1) / (y2 - y1);
+    }
+    return esq[0][0];
+  }
+  const espelha = veias => [...veias, ...veias.map(v => v.map(q => pt(100 - q.x, q.y)))];
+  function dentro(q, poli) {
+    let d = false;
+    for (let i = 0, j = poli.length - 1; i < poli.length; j = i++) {
+      const a = poli[i], b = poli[j];
+      if ((a.y > q.y) !== (b.y > q.y) && q.x < (b.x - a.x) * (q.y - a.y) / (b.y - a.y) + a.x) d = !d;
+    }
+    return d;
+  }
 
   function riempi(svg) {
     const folha = FOLHAS[svg.dataset.folha];
@@ -167,7 +306,8 @@
     const d = folha.desenha();
     svg.setAttribute('viewBox', '0 0 100 130');
     svg.setAttribute('aria-hidden', 'true');
-    svg.innerHTML = `<path d="${d.contorno}" ${traco(1)}/>` + (d.nervura ? `<path d="${d.nervura}" ${traco(.8)}/>` : '') + (d.laterais ? `<path d="${d.laterais}" ${traco(.6, ' opacity=".75"')}/>` : '');
+    svg.innerHTML = `<path d="${d.contorno}" ${traco(1)}/>` + (d.nervura ? `<path d="${d.nervura}" ${traco(.8)}/>` : '') + (d.laterais ? `<path d="${d.laterais}" ${traco(.6, ' opacity=".75"')}/>` : '') +
+      (d.pontos || []).map(p => `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${p.r.toFixed(2)}" fill="${cor}" opacity=".8"/>`).join('');
     try {
       const b = svg.getBBox(), m = 3;
       if (b.width) svg.setAttribute('viewBox', `${f(b.x - m)} ${f(b.y - m)} ${f(b.width + 2 * m)} ${f(b.height + 2 * m)}`);

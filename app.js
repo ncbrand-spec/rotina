@@ -28,7 +28,7 @@ const CHAVE = 'rotina-skincare-v1';
 function novoEstado() {
   const produtos = {};
   for (const p of PRODUTOS) produtos[p.id] = { estado: p.inicial };
-  return { versao: 1, produtos, feitos: {}, diario: [], spf: {}, adiados: {} };
+  return { versao: 1, produtos, feitos: {}, completos: {}, diario: [], spf: {}, adiados: {} };
 }
 
 function carregar() {
@@ -37,7 +37,7 @@ function carregar() {
     if (t) {
       const s = JSON.parse(t);
       for (const p of PRODUTOS) if (!s.produtos[p.id]) s.produtos[p.id] = { estado: p.inicial };
-      s.feitos = s.feitos || {}; s.diario = s.diario || []; s.spf = s.spf || {}; s.adiados = s.adiados || {};
+      s.feitos = s.feitos || {}; s.completos = s.completos || {}; s.diario = s.diario || []; s.spf = s.spf || {}; s.adiados = s.adiados || {};
       return s;
     }
   } catch (e) { /* começa do zero */ }
@@ -91,6 +91,37 @@ function progresso(dia, turno) {
   const f = feitosDe(dia, turno);
   const feitos = itens.filter(i => f[i.p.id]).length;
   return { feitos, total: itens.length, completo: itens.length > 0 && feitos === itens.length };
+}
+
+// ---------- o contador ----------
+// Um dia conta quando manhã e noite ficaram completas. Fica guardado no momento da marcação,
+// assim um produto novo na rotina não apaga os dias que já valeram.
+function registrarDia(d) {
+  S.completos[d] = { manha: progresso(d, 'manha').completo, noite: progresso(d, 'noite').completo };
+}
+const diaCompleto = d => !!(S.completos[d] && S.completos[d].manha && S.completos[d].noite);
+
+function metaDaSemana(d) {
+  const ini = segundaDaSemana(d);
+  const dias = Array.from({ length: 7 }, (_, i) => somaDias(ini, i));
+  return { dias, feitos: dias.filter(diaCompleto).length };
+}
+
+// dias seguidos até hoje (se hoje ainda não está completo, conta até ontem)
+function seguidos() {
+  let d = diaCompleto(HOJE) ? HOJE : somaDias(HOJE, -1), n = 0;
+  while (diaCompleto(d)) { n++; d = somaDias(d, -1); }
+  return n;
+}
+
+function recorde() {
+  let melhor = 0, atual = 0, antes = null;
+  for (const d of Object.keys(S.completos).filter(diaCompleto).sort()) {
+    atual = antes && difDias(antes, d) === 1 ? atual + 1 : 1;
+    melhor = Math.max(melhor, atual);
+    antes = d;
+  }
+  return melhor;
 }
 
 function podeIntroduzir(p, hoje) {
@@ -252,17 +283,23 @@ function telaHoje() {
 
 function semana(d) {
   const ini = segundaDaSemana(d);
-  let h = `<div class="semana"><button class="seta" data-acao="semana" data-n="-7" aria-label="Semana anterior">${icone('esq')}</button><div class="dias">`;
+  let h = `<div class="semana"><div class="semana-linha"><button class="seta" data-acao="semana" data-n="-7" aria-label="Semana anterior">${icone('esq')}</button><div class="dias">`;
   for (let i = 0; i < 7; i++) {
     const x = somaDias(ini, i), dd = deISO(x);
     const m = progresso(x, 'manha'), n = progresso(x, 'noite');
     const ponto = p => p.completo ? 'cheio' : (p.feitos ? 'meio' : '');
-    h += `<button class="dia${x === d ? ' sel' : ''}${x === HOJE ? ' hoje' : ''}${emViagem(x) ? ' sol' : ''}" data-acao="verDia" data-dia="${x}" aria-label="${fmtLongo(x)}">
+    h += `<button class="dia${x === d ? ' sel' : ''}${x === HOJE ? ' hoje' : ''}${emViagem(x) ? ' sol' : ''}" data-acao="verDia" data-dia="${x}" aria-label="${fmtLongo(x)}${diaCompleto(x) ? ', dia completo' : ''}">
       <span class="letra">${DIAS_CURTOS[dd.getDay()]}</span><span class="num">${dd.getDate()}</span>
-      <span class="pontos">${x <= HOJE ? `<i class="${ponto(m)}"></i><i class="${ponto(n)}"></i>` : '<i class="vazio"></i><i class="vazio"></i>'}</span>
+      ${diaCompleto(x) ? `<span class="ok-dia">${icone('check')}</span>` : `<span class="pontos">${x <= HOJE ? `<i class="${ponto(m)}"></i><i class="${ponto(n)}"></i>` : '<i class="vazio"></i><i class="vazio"></i>'}</span>`}
     </button>`;
   }
-  return h + `</div><button class="seta" data-acao="semana" data-n="7" aria-label="Próxima semana">${icone('dir')}</button></div>`;
+  h += `</div><button class="seta" data-acao="semana" data-n="7" aria-label="Próxima semana">${icone('dir')}</button></div>`;
+  const meta = metaDaSemana(d), seq = seguidos(), rec = recorde(), perfeita = meta.feitos === 7;
+  return h + `<div class="semana-meta${perfeita ? ' perfeita' : ''}">
+    <div class="meta-barra" role="progressbar" aria-valuenow="${meta.feitos}" aria-valuemin="0" aria-valuemax="7"><i style="width:${(meta.feitos / 7 * 100).toFixed(1)}%"></i></div>
+    <p class="meta-texto">${perfeita ? '<strong>Semana perfeita!</strong> 7 de 7 dias' : `<strong>${meta.feitos} de 7</strong> dias completos na semana`}</p>
+    <p class="meta-seq">${seq ? `${seq} ${seq === 1 ? 'dia seguido' : 'dias seguidos'}` : 'Complete hoje e comece a sequência'}${rec > 1 && rec > seq ? ` · recorde ${rec}` : ''}</p>
+  </div></div>`;
 }
 
 function turno(t, d) {
@@ -454,7 +491,8 @@ function telaCalendario() {
     h += `<button class="cel${x === HOJE ? ' hoje' : ''}${emViagem(x) ? ' sol' : ''}${x > HOJE ? ' depois' : ''}" data-acao="verDia" data-dia="${x}" aria-label="${fmtLongo(x)}">
       <span>${n}</span><span class="pontos">${x <= HOJE ? `<i class="${ponto(pm)}"></i><i class="${ponto(pn)}"></i>` : ''}</span></button>`;
   }
-  h += `</div><p class="legenda"><span><i class="cheio"></i>completa</span><span><i class="meio"></i>em parte</span><span><i class="faixa"></i>${VIAGEM.lugar}</span></p></section>`;
+  const completosMes = Array.from({ length: diasNoMes }, (_, i) => `${vista.mes}-${String(i + 1).padStart(2, '0')}`).filter(diaCompleto).length;
+  h += `</div><p class="mes-conta"><strong>${completosMes}</strong> ${completosMes === 1 ? 'dia completo' : 'dias completos'} em ${MESES[m - 1]}</p><p class="legenda"><span><i class="cheio"></i>completa</span><span><i class="meio"></i>em parte</span><span><i class="faixa"></i>${VIAGEM.lugar}</span></p></section>`;
   h += '<section class="grupo"><h2>As fases</h2><ol class="fases">';
   const atual = faseDe(HOJE);
   for (const f of FASES) {
@@ -547,10 +585,15 @@ const ACOES = {
   marcar: el => {
     const d = vista.dia, t = el.dataset.turno, id = el.dataset.id;
     if (d > HOJE) return;
+    const antes = diaCompleto(d);
     S.feitos[d] = S.feitos[d] || {}; S.feitos[d][t] = S.feitos[d][t] || {};
     if (S.feitos[d][t][id]) delete S.feitos[d][t][id]; else S.feitos[d][t][id] = true;
+    registrarDia(d);
     salvar(); render();
-    if (progresso(d, t).completo && S.feitos[d][t][id]) toast(t === 'manha' ? 'Manhã completa ✓' : 'Noite completa ✓');
+    if (diaCompleto(d) && !antes) {
+      const m = metaDaSemana(d);
+      toast(m.feitos === 7 ? 'Semana perfeita! 7 de 7 ✓' : `Dia completo! ${m.feitos} de 7 na semana ✓`);
+    } else if (progresso(d, t).completo && S.feitos[d][t][id]) toast(t === 'manha' ? 'Manhã completa ✓' : 'Noite completa ✓');
   },
   comecar: el => comecar(el.dataset.id, HOJE),
   desde: el => { vista.desde = el.dataset.id; render(); },
@@ -687,8 +730,10 @@ document.addEventListener('visibilitychange', () => {
   render();
 });
 
+// os dias marcados antes do contador existir também contam
+for (const d of Object.keys(S.feitos)) if (!S.completos[d] && d <= HOJE) registrarDia(d);
 render();
-// quando arriva una versione nuova del app, recarrega uma vez sozinho para mostrá-la logo
+// quando chega uma versão nova do app, recarrega uma vez sozinho para mostrá-la logo
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   const tinhaVersao = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => {

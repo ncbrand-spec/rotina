@@ -96,10 +96,11 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .topo h1 { font: 600 38px/1.1 var(--f-titulo); margin-top: 8px; }
 
 /* ---------- settimana ---------- */
-.semana { display: flex; align-items: center; gap: 4px; padding: 8px 4px; margin-bottom: 24px; background: var(--carta); border: var(--card-borda); border-radius: var(--raio-grande); box-shadow: var(--card-sombra); }
+.semana { padding: 8px 4px 14px; margin-bottom: 24px; background: var(--carta); border: var(--card-borda); border-radius: var(--raio-grande); box-shadow: var(--card-sombra); }
+.semana-linha { display: flex; align-items: center; gap: 4px; }
 .seta { width: 32px; height: 48px; display: grid; place-items: center; color: var(--cinza); border-radius: 12px; flex: none; }
 .dias { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.dia { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 8px; border-radius: 14px; min-height: 72px; }
+.dia { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 8px; border-radius: 14px; min-height: 72px; }
 .dia .letra { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--cinza); }
 .dia .num { font-size: 18px; font-weight: 600; line-height: 1.3; }
 .dia.hoje:not(.sel) .num { color: var(--primaria); }
@@ -112,6 +113,23 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .pontos i.cheio { background: var(--destaque); }
 .pontos i.vazio { background: transparent; }
 .dia.sel .pontos i:not(.cheio):not(.meio):not(.vazio) { background: rgba(255, 255, 255, .35); }
+
+/* o contador da semana, embaixo dos dias */
+/* dia completo: um ✓ no lugar dos dois pontinhos */
+.ok-dia { width: 16px; height: 16px; margin-top: 1px; border-radius: 50%; background: var(--verde); display: grid; place-items: center; }
+.ok-dia .ic { width: 11px; height: 11px; stroke-width: 3; color: #fff; }
+.dia.sel .ok-dia { background: var(--destaque); }
+.dia.sel .ok-dia .ic { color: var(--tinta); }
+.semana-meta { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; margin: 12px 14px 0; padding-top: 12px; border-top: 1px solid var(--linha); }
+.meta-barra { flex: 1 0 100%; height: 8px; border-radius: 999px; background: var(--linha); overflow: hidden; }
+.meta-barra i { display: block; height: 100%; border-radius: inherit; background: var(--verde); transition: width .3s; }
+.meta-texto { font-size: 15px; color: var(--cinza); }
+.meta-texto strong { font: 600 20px/1.2 var(--f-titulo); color: var(--tinta); margin-right: 4px; }
+.meta-seq { font-size: 13px; font-weight: 600; color: var(--verde); }
+.semana-meta.perfeita .meta-barra i { background: var(--destaque); }
+.semana-meta.perfeita .meta-texto strong { color: var(--primaria); }
+.mes-conta { text-align: center; margin: 14px 0 0; font-size: 15px; color: var(--cinza); }
+.mes-conta strong { font: 600 22px/1.2 var(--f-titulo); color: var(--tinta); margin-right: 2px; }
 
 /* ---------- fase del piano ---------- */
 .fase { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; padding: 20px; margin-bottom: 24px; border-radius: var(--raio-grande); background: var(--fase-fundo); border: var(--card-borda); box-shadow: var(--card-sombra); }

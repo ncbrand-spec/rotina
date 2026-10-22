@@ -686,4 +686,13 @@ document.addEventListener('visibilitychange', () => {
 });
 
 render();
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+// quando arriva una versione nuova del app, recarrega uma vez sozinho para mostrá-la logo
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  const tinhaVersao = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    let ja = false;
+    try { ja = sessionStorage.getItem('rotina-recarregou') === '1'; sessionStorage.setItem('rotina-recarregou', '1'); } catch (e) { ja = true; }
+    if (tinhaVersao && !ja) location.reload();
+  });
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}

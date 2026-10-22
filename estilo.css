@@ -1,4 +1,4 @@
-/* Rotina: struttura comune. I colori, i caratteri e i bordi arrivano dal tema (temas/*.css).
+/* Velvet: struttura comune. I colori, i caratteri e i bordi arrivano dal tema (temas/*.css).
    Sistema: 2 caratteri (titoli serif, testo sans), spazi a multipli di 8, tocchi da almeno 44px. */
 :root {
   --bg: #fff0d8;

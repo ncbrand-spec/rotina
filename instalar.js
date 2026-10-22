@@ -1,5 +1,5 @@
 'use strict';
-// No iPhone, quando o Rotina está aberto no navegador (e não pelo ícone), mostra como criar o ícone.
+// No iPhone, quando o Velvet está aberto no navegador (e não pelo ícone), mostra como criar o ícone.
 // Safari: o botão Compartilhar fica embaixo; Chrome: no alto, à direita da barra do endereço.
 // ?instalar=safari|chrome no endereço força o aviso (para testar no computador).
 (() => {
@@ -19,13 +19,13 @@
   caixa.id = 'instalar';
   caixa.className = chrome ? 'em-cima' : 'embaixo';
   caixa.setAttribute('role', 'dialog');
-  caixa.setAttribute('aria-label', 'Como colocar o Rotina na tela de início');
+  caixa.setAttribute('aria-label', 'Como colocar o Velvet na tela de início');
   caixa.innerHTML = `
-    <div class="instalar-topo"><img src="icones/icone-180.png" alt="" width="48" height="48"><strong>Coloque o Rotina na tela de início</strong></div>
+    <div class="instalar-topo"><img src="icones/icone-180.png" alt="" width="48" height="48"><strong>Coloque o Velvet na tela de início</strong></div>
     <ol>
       <li>Toque em <span class="tecla">${partilhar}Compartilhar</span> ${onde}.</li>
       <li>Role a lista para baixo e toque em <b>«Adicionar à Tela de Início»</b> <span class="it">(em italiano «Aggiungi alla schermata Home»)</span>, depois em <b>Adicionar</b>.</li>
-      <li>Feche o ${chrome ? 'Chrome' : 'Safari'} e abra o Rotina <b>pelo ícone novo</b>. A senha, digite lá.</li>
+      <li>Feche o ${chrome ? 'Chrome' : 'Safari'} e abra o Velvet <b>pelo ícone novo</b>. A senha, digite lá.</li>
     </ol>
     <button type="button" class="instalar-fechar">Agora não</button>
     <span class="seta" aria-hidden="true"></span>`;

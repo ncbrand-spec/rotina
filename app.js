@@ -620,7 +620,7 @@ const ACOES = {
   },
   exportar: () => {
     const blob = new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' });
-    const nome = `rotina-copia-${HOJE}.json`;
+    const nome = `velvet-copia-${HOJE}.json`;
     const arquivo = new File([blob], nome, { type: 'application/json' });
     if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
       navigator.share({ files: [arquivo], title: 'Cópia da rotina' }).catch(() => {});

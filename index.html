@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rotina</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#F7F3EF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171312" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Rotina">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icones/icone-180.png">
+<link rel="icon" type="image/png" href="icones/icone-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body class="trancado">
+<form id="cadeado" hidden autocomplete="on">
+  <img src="icones/icone-180.png" alt="" class="cadeado-icone" width="88" height="88">
+  <h1>Rotina</h1>
+  <p>Digite a senha para abrir. Neste aparelho ela só é pedida uma vez.</p>
+  <input class="invisivel" type="text" name="usuario" autocomplete="username" value="rotina" tabindex="-1" aria-hidden="true">
+  <label class="invisivel" for="senha">Senha</label>
+  <input id="senha" type="password" name="senha" autocomplete="current-password" placeholder="Senha" required>
+  <button class="botao largo">Abrir</button>
+  <p class="erro" role="alert"></p>
+</form>
+<main id="tela"></main>
+<nav id="abas" aria-label="Seções">
+  <button data-acao="aba" data-aba="hoje"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M8.2 12.4l2.6 2.6 5-5.2"/></svg><span>Hoje</span></button>
+  <button data-acao="aba" data-aba="produtos"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2.8h4v3.4l2.2 2.3V20a1.2 1.2 0 0 1-1.2 1.2H9A1.2 1.2 0 0 1 7.8 20V8.5L10 6.2z"/><path d="M7.8 12.5h8.4"/></svg><span>Produtos</span></button>
+  <button data-acao="aba" data-aba="calendario"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.6" y="5" width="16.8" height="15.4" rx="2.4"/><path d="M3.6 10h16.8M8.2 2.8v4M15.8 2.8v4"/></svg><span>Calendário</span></button>
+  <button data-acao="aba" data-aba="diario"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.2h10.3a1.8 1.8 0 0 1 1.8 1.8v14a1.8 1.8 0 0 1-1.8 1.8H6.5z"/><path d="M6.5 3.2v17.6M10.2 8h5M10.2 11.8h5"/></svg><span>Diário</span></button>
+  <button data-acao="aba" data-aba="guia"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.6M12 7.6v.2"/></svg><span>Guia</span></button>
+</nav>
+<div id="aviso" role="status" aria-live="polite"></div>
+<script src="cadeado.js"></script>
+</body>
+</html>

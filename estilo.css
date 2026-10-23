@@ -610,3 +610,6 @@ body.trancado #abas { display: none; }
 }
 
 .kpi .meta-barra { flex: none; height: 8px; }
+
+.cartao.planilha { margin-top: 20px; }
+.cartao.planilha > p { margin-top: 4px; }

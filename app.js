@@ -678,7 +678,10 @@ function painelProgresso() {
     ${e.problemas.length ? graficoBarras(e.problemas.map((x, i) => ({ nome: x.nome, marca: x.alerta ? 'reação' : '', valor: pct(x.vezes, e.problemas[0].vezes), texto: `${x.vezes}×`, destaque: i === 0, dica: `${x.nome}: ${x.vezes} ${x.vezes === 1 ? 'vez' : 'vezes'}` })))
       : `<p class="vazio-painel">${e.notas.length ? 'Só «pele bem» no diário. Ótimo sinal!' : 'Nenhuma anotação no diário neste período.'}</p>`}
     ${e.problemas.length ? tabelaSimples(['Sinal', 'Vezes'], e.problemas.map(x => [x.nome + (x.alerta ? ' (reação)' : ''), String(x.vezes)])) : ''}</section>
-  </div>`;
+  </div>
+  <section class="cartao planilha"><strong>Quer os dados numa planilha?</strong>
+    <p>As mesmas informações, dia por dia e passo por passo, em 5 planilhas para o Google Planilhas ou o Excel.</p>
+    <div class="botoes"><button class="botao" data-acao="exportarPlanilhas">Exportar para planilha</button></div></section>`;
   return h;
 }
 

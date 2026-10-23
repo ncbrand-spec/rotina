@@ -114,6 +114,17 @@ function seguidos() {
   return n;
 }
 
+// a «umidade» da Estufa: quantos turnos (manhã e noite) ficaram completos nos últimos 7 dias
+// (contando só os dias desde que o app começou a ser usado)
+function umidade() {
+  const usados = Object.keys(S.feitos).sort();
+  const dias = Math.max(1, Math.min(7, usados.length ? difDias(usados[0], HOJE) + 1 : 1));
+  let feitos = 0;
+  for (let i = 0; i < dias; i++) { const c = S.completos[somaDias(HOJE, -i)]; if (c) feitos += (c.manha ? 1 : 0) + (c.noite ? 1 : 0); }
+  return Math.round(feitos / (dias * 2) * 100);
+}
+const climaDaEstufa = u => u >= 75 ? 'orvalho' : u < 35 ? 'sede' : 'bom';
+
 function recorde() {
   let melhor = 0, atual = 0, antes = null;
   for (const d of Object.keys(S.completos).filter(diaCompleto).sort()) {
@@ -490,10 +501,10 @@ function telaCalendario() {
     const pm = progresso(x, 'manha'), pn = progresso(x, 'noite');
     const ponto = p => p.completo ? 'cheio' : (p.feitos ? 'meio' : '');
     h += `<button class="cel${x === HOJE ? ' hoje' : ''}${emViagem(x) ? ' sol' : ''}${x > HOJE ? ' depois' : ''}" data-acao="verDia" data-dia="${x}" aria-label="${fmtLongo(x)}">
-      <span>${n}</span><span class="pontos">${x <= HOJE ? `<i class="${ponto(pm)}"></i><i class="${ponto(pn)}"></i>` : ''}</span></button>`;
+      <span>${n}</span><span class="pontos">${x <= HOJE ? `<i class="${ponto(pm)}"></i><i class="${ponto(pn)}"></i>` : ''}</span>${S.diario.some(r => r.dia === x) ? '<span class="nota-cal" title="Anotação no diário"></span>' : ''}</button>`;
   }
   const completosMes = Array.from({ length: diasNoMes }, (_, i) => `${vista.mes}-${String(i + 1).padStart(2, '0')}`).filter(diaCompleto).length;
-  h += `</div><p class="mes-conta"><strong>${completosMes}</strong> ${completosMes === 1 ? 'dia completo' : 'dias completos'} em ${MESES[m - 1]}</p><p class="legenda"><span><i class="cheio"></i>completa</span><span><i class="meio"></i>em parte</span><span><i class="faixa"></i>${VIAGEM.lugar}</span></p></section>`;
+  h += `</div><p class="mes-conta"><strong>${completosMes}</strong> ${completosMes === 1 ? 'dia completo' : 'dias completos'} em ${MESES[m - 1]}</p><p class="legenda"><span><i class="cheio"></i>completa</span><span><i class="meio"></i>em parte</span><span><i class="faixa"></i>${VIAGEM.lugar}</span><span><i class="diario"></i>diário</span></p></section>`;
   h += '<section class="grupo"><h2>As fases</h2><ol class="fases">';
   const atual = faseDe(HOJE);
   for (const f of FASES) {
@@ -513,10 +524,14 @@ function telaCalendario() {
 function telaDiario() {
   const fm = vista.form;
   const candidatos = PRODUTOS.filter(p => ['introduzindo', 'teste', 'em_uso'].includes(E(p.id).estado) && !p.gesto);
+  const dia = fm.dia || HOJE;
+  const rotuloDia = d => d === HOJE ? 'Hoje' : d === somaDias(HOJE, -1) ? 'Ontem' : '';
   let h = `<header class="topo"><p class="sobre">Diário da pele</p><h1>Como está a pele?</h1></header>
   <div class="diario-grade"><div class="diario-col">${vista.resultado || ''}
   <section class="cartao form-diario">
-    <p class="rotulo">Hoje a pele está</p>
+    <label class="rotulo" for="dia-diario">Dia da anotação</label>
+    <div class="campo-dia"><input id="dia-diario" type="date" data-campo="dia" value="${dia}" max="${HOJE}"><span>${rotuloDia(dia) ? rotuloDia(dia) + ' · ' : ''}${fmtLongo(dia)}</span></div>
+    <p class="rotulo">${dia === HOJE ? 'Hoje a pele está' : 'Nesse dia a pele estava'}</p>
     <div class="chips">${SINTOMAS_LEVES.map(s => chip(s, fm.sintomas.includes(s), false)).join('')}</div>
     <p class="rotulo">Algum sinal de reação?</p>
     <div class="chips">${SINTOMAS_ALERTA.map(s => chip(s, fm.sintomas.includes(s), true)).join('')}</div>
@@ -526,15 +541,21 @@ function telaDiario() {
     <textarea id="nota" data-campo="nota" rows="3" placeholder="Ex.: olheiras mais claras, pele seca no queixo…">${esc(fm.nota)}</textarea>
     <button class="botao largo" data-acao="salvarDiario">Salvar no diário</button>
   </section></div><div class="diario-col">`;
-  const lista = [...S.diario].sort((a, b) => b.criado - a.criado);
-  if (lista.length) {
+  // as anotações agrupadas por dia, do mais recente para o mais antigo; dentro do dia, pela hora
+  const porDia = {};
+  for (const r of S.diario) (porDia[r.dia] = porDia[r.dia] || []).push(r);
+  const dias = Object.keys(porDia).sort().reverse();
+  if (dias.length) {
     h += '<section class="grupo"><h2>Anotações</h2>';
-    for (const r of lista) {
+    for (const d of dias) {
+      h += `<h3 class="dia-diario"><span class="dia-nome">${fmtLongo(d)}</span>${rotuloDia(d) ? `<span class="dia-rotulo">${rotuloDia(d)}</span>` : ''}</h3>`;
+      for (const r of porDia[d].sort((a, b) => b.criado - a.criado)) {
       const alerta = r.sintomas.some(s => SINTOMAS_ALERTA.includes(s));
-      h += `<article class="registro${alerta ? ' alerta' : ''}"><div class="reg-topo"><strong>${fmtLongo(r.dia)}</strong><button class="link perigo" data-acao="apagarRegistro" data-id="${r.criado}">Apagar</button></div>
+      h += `<article class="registro${alerta ? ' alerta' : ''}"><div class="reg-topo"><span class="reg-hora">Anotado às ${fmtHora(r.criado)}${iso(new Date(r.criado)) !== r.dia ? ` de ${fmtCurto(iso(new Date(r.criado)))}` : ''}</span><button class="link perigo" data-acao="apagarRegistro" data-id="${r.criado}">Apagar</button></div>
         ${r.sintomas.length ? `<p class="tags">${r.sintomas.map(s => `<span>${esc(s)}</span>`).join('')}</p>` : ''}
         ${r.produto ? `<p class="extra">Produto: ${esc(P(r.produto) ? P(r.produto).curto : r.produto)}</p>` : ''}
         ${r.nota ? `<p>${esc(r.nota)}</p>` : ''}</article>`;
+      }
     }
     h += '</section>';
   }
@@ -555,6 +576,7 @@ function falaDoVisinho() {
   if (diaCompleto(HOJE)) return { estado: 'feliz', texto: `<b>Dia completo!</b> ${meta.feitos} de 7 nesta semana. ${carinho}` };
   if (emViagem(HOJE)) return { estado: 'sol', texto: `<b>Modo ${esc(VIAGEM.lugar)}!</b> Chapéu, sombra e protetor reaplicado a cada 2 horas ao ar livre.` };
   if (h >= 19) return { estado: 'noite', texto: `<b>Hora da rotina da noite.</b> ${carinho}` };
+  if (climaDaEstufa(umidade()) === 'sede') return { estado: 'dica', texto: '<b>As plantas da sua Estufa estão com sede.</b> Cada rotina completa é um vaporzinho para elas.' };
   return { estado: 'dica', texto: `<b>${carinho}</b>${seq > 1 ? ` Já são ${seq} dias seguidos!` : ''}` };
 }
 
@@ -685,11 +707,15 @@ function telaEstufa() {
   const pct = fase === 1 ? N / T : fase === 2 ? (N - T) / (2 * T) : 1;
   const prox = premioNumero(N + 1), pp = CATALOGO[prox.i];
   const proxTexto = prox.tipo === 'nova' ? `Na próxima semana perfeita chega: <b>${pp.nome}</b>.` : prox.tipo === 'crescer' ? `Na próxima semana perfeita, <b>${pp.nome}</b> ${prox.estagio === 1 ? 'cresce' : 'floresce'}.` : `Na próxima semana perfeita, <b>${pp.nome}</b> fica rara.`;
+  const u = umidade(), clima = climaDaEstufa(u);
+  const textoClima = clima === 'orvalho' ? 'Suas plantas estão viçosas, cheias de orvalho.' : clima === 'bom' ? 'Elas estão bem. Cada rotina completa é mais um vaporzinho.' : 'Elas estão com sede: cada rotina completa é uma borrifada.';
   let h = `<header class="topo"><p class="sobre">A sua coleção</p><h1>Estufa</h1></header>
   <div class="fala">${Visino.desenha(N ? 'feliz' : 'dica')}<div class="balao"><p class="fala-msg"><b>${N === 0 ? 'A sua Estufa está esperando a primeira planta.' : `${N} ${N === 1 ? 'semana perfeita' : 'semanas perfeitas'}!`}</b> ${proxTexto}</p></div></div>
   <section class="cartao estufa-fase"><strong>${textoFase}</strong><div class="meta-barra"><i style="width:${(pct * 100).toFixed(1)}%"></i></div>
     <p>Uma semana perfeita = 7 de 7 dias com manhã e noite completas. Depois das 28 plantas, elas crescem; depois, ficam raras.</p></section>
-  <section class="prateleiras">`;
+  <section class="cartao umidade clima-${clima}"><div class="umidade-topo"><strong>Umidade da Estufa</strong><span class="umidade-n">${u}%</span></div>
+    <div class="meta-barra"><i style="width:${u}%"></i></div><p>${textoClima} <span>A umidade vem das suas rotinas dos últimos 7 dias.</span></p></section>
+  <section class="prateleiras clima-${clima}">`;
   for (const p of plantas) {
     const proxima = !p.ganha && p.i === N;
     h += `<div class="slot${p.ganha ? '' : ' travado'}${proxima ? ' proxima' : ''}">${artePlanta(p, !p.ganha)}
@@ -743,6 +769,20 @@ function telaGuia() {
 
 // ---------- ações ----------
 function toast(t) { aviso(t); }
+
+// o vaporzinho e a aguinha: vapor subindo e gotinhas caindo, por um instante
+function borrifar() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const v = document.createElement('div');
+  v.className = 'vapor';
+  v.setAttribute('aria-hidden', 'true');
+  let h = '';
+  for (let i = 0; i < 9; i++) h += `<i style="left:${5 + i * 11}%;animation-delay:${(i % 4) * .15}s;width:${50 + (i * 23) % 50}px;height:${50 + (i * 23) % 50}px"></i>`;
+  for (let i = 0; i < 12; i++) h += `<b style="left:${3 + (i * 37) % 94}%;animation-delay:${(i % 5) * .12}s"></b>`;
+  v.innerHTML = h;
+  document.body.appendChild(v);
+  setTimeout(() => v.remove(), 2600);
+}
 function aviso(t) {
   const el = document.getElementById('aviso');
   el.textContent = t; el.classList.add('ver');
@@ -769,7 +809,7 @@ const ACOES = {
   marcar: el => {
     const d = vista.dia, t = el.dataset.turno, id = el.dataset.id;
     if (d > HOJE) return;
-    const antes = diaCompleto(d);
+    const antes = diaCompleto(d), turnoAntes = progresso(d, t).completo;
     S.feitos[d] = S.feitos[d] || {}; S.feitos[d][t] = S.feitos[d][t] || {};
     if (S.feitos[d][t][id]) delete S.feitos[d][t][id]; else S.feitos[d][t][id] = true;
     registrarDia(d);
@@ -777,10 +817,11 @@ const ACOES = {
     if (novos.semanas.length || novos.meses.length) vista.festa = novos;
     salvar(); render();
     if (vista.festa) return;
+    if (progresso(d, t).completo && !turnoAntes) borrifar();
     if (diaCompleto(d) && !antes) {
       const m = metaDaSemana(d);
       toast(m.feitos === 7 ? 'Semana perfeita! 7 de 7 ✓' : `Dia completo! ${m.feitos} de 7 na semana ✓`);
-    } else if (progresso(d, t).completo && S.feitos[d][t][id]) toast(t === 'manha' ? 'Manhã completa ✓' : 'Noite completa ✓');
+    } else if (progresso(d, t).completo && S.feitos[d][t][id]) toast(t === 'manha' ? 'Manhã completa ✓ Vaporzinho na Estufa' : 'Noite completa ✓ Vaporzinho na Estufa');
   },
   outraDica: () => { vista.dica++; render(); },
   verEstufa: () => { vista.festa = null; vista.aba = 'estufa'; render(); },
@@ -836,7 +877,8 @@ const ACOES = {
   salvarDiario: () => {
     const fm = vista.form;
     if (!fm.sintomas.length && !fm.nota.trim()) { toast('Escolha um sinal ou escreva algo.'); return; }
-    S.diario.push({ criado: Date.now(), dia: HOJE, sintomas: fm.sintomas, produto: fm.produto, nota: fm.nota.trim() });
+    const dia = fm.dia && fm.dia <= HOJE ? fm.dia : HOJE;
+    S.diario.push({ criado: Date.now(), dia, sintomas: fm.sintomas, produto: fm.produto, nota: fm.nota.trim() });
     const alerta = fm.sintomas.some(s => SINTOMAS_ALERTA.includes(s));
     vista.resultado = alerta ? conselho(fm.produto) : null;
     vista.form = { sintomas: [], produto: '', nota: '' };
@@ -893,6 +935,7 @@ document.addEventListener('input', ev => {
 document.addEventListener('change', ev => {
   const c = ev.target.dataset.campo;
   if (c === 'produto') vista.form.produto = ev.target.value;
+  if (c === 'dia') { const v = ev.target.value; vista.form.dia = v && v <= HOJE ? v : HOJE; render(); }
   if (c === 'importar' && ev.target.files[0]) {
     ev.target.files[0].text().then(t => {
       const s = JSON.parse(t);

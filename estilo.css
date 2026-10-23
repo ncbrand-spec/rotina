@@ -483,3 +483,42 @@ body.trancado #abas { display: none; }
   .slot:nth-child(6n+1)::after { border-radius: 6px 0 0 6px; }
   .slot:nth-child(6n)::after, .slot:last-child::after { border-radius: 0 6px 6px 0; }
 }
+
+
+/* ---------- a umidade da Estufa: vaporzinho e aguinha ---------- */
+.umidade-topo { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.umidade-topo strong { font: 600 20px/1.2 var(--f-titulo); }
+.umidade-n { font: 700 24px/1 var(--f-titulo); color: #2f7f9e; }
+.umidade .meta-barra { margin: 12px 0 10px; }
+.umidade .meta-barra i { background: linear-gradient(90deg, #a9dcea, #4fa3c0); }
+.umidade > p { font-size: 15px; color: var(--tinta); }
+.umidade > p span { display: block; margin-top: 4px; font-size: 13px; color: var(--cinza); }
+.umidade.clima-sede .umidade-n { color: var(--aviso); }
+.umidade.clima-sede .meta-barra i { background: linear-gradient(90deg, #f3d9a4, #d9a520); }
+/* com a umidade alta, gotinhas de orvalho nas plantas; com sede, ficam apagadinhas */
+.clima-orvalho .slot:not(.travado) .arte::after {
+  content: ''; position: absolute; left: 50%; top: 18%; width: 46px; height: 40px; transform: translateX(-50%); pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 40'%3E%3Cg fill='%23a9dcea' stroke='%23ffffff' stroke-width='1.2'%3E%3Cpath d='M8 4c0 0-5 6-5 9a5 5 0 0 0 10 0c0-3-5-9-5-9z'/%3E%3Cpath d='M34 14c0 0-4 5-4 7.5a4 4 0 0 0 8 0c0-2.5-4-7.5-4-7.5z'/%3E%3Cpath d='M18 26c0 0-3.5 4-3.5 6a3.5 3.5 0 0 0 7 0c0-2-3.5-6-3.5-6z'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / contain;
+}
+.clima-sede .slot:not(.travado) .arte > :first-child { filter: saturate(.45) brightness(1.06); }
+.vapor { position: fixed; inset: 0; z-index: 45; pointer-events: none; overflow: hidden; }
+.vapor i { position: absolute; bottom: -60px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, .95), rgba(170, 218, 234, .75) 40%, rgba(170, 218, 234, 0) 70%); opacity: 0; animation: vapor-sobe 2.2s ease-out forwards; }
+.vapor b { position: absolute; top: -20px; width: 10px; height: 14px; border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%; background: #8fd0e0; box-shadow: inset -2px -2px 0 rgba(255, 255, 255, .6); opacity: 0; animation: gota-cai 1.6s ease-in forwards; }
+@keyframes vapor-sobe { 0% { transform: translateY(0) scale(.6); opacity: 0; } 25% { opacity: .9; } 100% { transform: translateY(-75vh) scale(1.8); opacity: 0; } }
+@keyframes gota-cai { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: .9; } 100% { transform: translateY(60vh); opacity: 0; } }
+
+
+/* ---------- diário: a data da anotação e os dias ---------- */
+.campo-dia { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.campo-dia input { min-height: 48px; font-size: 16px; border-radius: 14px; border: 2px solid var(--tinta); background: var(--carta); padding: 0 12px; }
+.campo-dia span { font-size: 14px; color: var(--cinza); }
+.campo-dia span::first-letter { text-transform: uppercase; }
+.dia-diario { display: flex; align-items: center; gap: 10px; margin: 20px 0 10px; font: 600 19px/1.25 var(--f-titulo); }
+.dia-diario:first-of-type { margin-top: 0; }
+.dia-nome { display: inline-block; }
+.dia-nome::first-letter { text-transform: uppercase; }
+.dia-rotulo { font: 600 11px/1 var(--f-texto); letter-spacing: .12em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: var(--destaque); color: var(--tinta); }
+.reg-hora { font-size: 13px; font-weight: 600; color: var(--cinza); }
+.cel { position: relative; }
+.nota-cal { position: absolute; top: 5px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--malva); }
+.legenda i.diario { background: var(--malva); }

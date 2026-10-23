@@ -28,7 +28,7 @@ const CHAVE = 'rotina-skincare-v1';
 function novoEstado() {
   const produtos = {};
   for (const p of PRODUTOS) produtos[p.id] = { estado: p.inicial };
-  return { versao: 1, produtos, feitos: {}, completos: {}, estufa: { semanas: [], meses: [] }, diario: [], spf: {}, adiados: {} };
+  return { versao: 1, produtos, feitos: {}, completos: {}, estufa: { semanas: [], meses: [] }, rotina: { extras: [], ajustes: {}, removidos: {}, ordem: null }, eventos: [], diario: [], spf: {}, adiados: {} };
 }
 
 function carregar() {
@@ -37,7 +37,7 @@ function carregar() {
     if (t) {
       const s = JSON.parse(t);
       for (const p of PRODUTOS) if (!s.produtos[p.id]) s.produtos[p.id] = { estado: p.inicial };
-      s.feitos = s.feitos || {}; s.completos = s.completos || {}; s.estufa = s.estufa || { semanas: [], meses: [] }; s.diario = s.diario || []; s.spf = s.spf || {}; s.adiados = s.adiados || {};
+      s.feitos = s.feitos || {}; s.completos = s.completos || {}; s.estufa = s.estufa || { semanas: [], meses: [] }; s.rotina = s.rotina || { extras: [], ajustes: {}, removidos: {}, ordem: null }; s.eventos = s.eventos || []; s.diario = s.diario || []; s.spf = s.spf || {}; s.adiados = s.adiados || {};
       return s;
     }
   } catch (e) { /* começa do zero */ }
@@ -55,6 +55,37 @@ function salvar() {
 // ---------- regras da rotina ----------
 const P = id => PRODUTOS.find(p => p.id === id);
 const E = id => S.produtos[id];
+
+// ---------- a rotina dela: o plano (dados trancados) + as mudanças feitas no app ----------
+// O plano original fica guardado; por cima dele: produtos acrescentados, ajustes, passos tirados e a ordem.
+const ORIGINAIS = JSON.parse(JSON.stringify(PRODUTOS));
+const ORDEM_ORIG = { manha: [...ORDEM_MANHA], noite: [...ORDEM_NOITE] };
+const removido = id => !!S.rotina.removidos[id];
+const pertence = (p, t) => p.turnos ? p.turnos.includes(t) : ORDEM_ORIG[t].includes(p.id);
+
+function aplicarRotina() {
+  PRODUTOS.length = 0;
+  for (const o of ORIGINAIS) PRODUTOS.push(JSON.parse(JSON.stringify(o)));
+  for (const x of S.rotina.extras) PRODUTOS.push(JSON.parse(JSON.stringify(x)));
+  for (const [id, a] of Object.entries(S.rotina.ajustes)) { const p = P(id); if (p) Object.assign(p, a); }
+  for (const p of PRODUTOS) if (!S.produtos[p.id]) S.produtos[p.id] = { estado: p.inicial || 'em_uso' };
+  for (const t of ['manha', 'noite']) {
+    const base = (S.rotina.ordem && S.rotina.ordem[t]) || ORDEM_ORIG[t];
+    const lista = base.filter(id => P(id) && pertence(P(id), t) && !removido(id));
+    for (const p of PRODUTOS) {
+      if (lista.includes(p.id) || removido(p.id) || !pertence(p, t)) continue;
+      const protetor = lista.indexOf('spf');      // de manhã o protetor fica sempre por último
+      if (t === 'manha' && protetor >= 0) lista.splice(protetor, 0, p.id); else lista.push(p.id);
+    }
+    const alvo = t === 'manha' ? ORDEM_MANHA : ORDEM_NOITE;
+    alvo.length = 0; alvo.push(...lista);
+  }
+}
+
+// ---------- o registro de uso: tudo o que acontece, com data e hora, para os gráficos e o dashboard ----------
+function registrar(tipo, campos = {}) {
+  S.eventos.push({ t: Date.now(), d: campos.d || HOJE, tipo, ...campos });
+}
 const emViagem = d => d >= VIAGEM.inicio && d <= VIAGEM.fim;
 const rotinaEstavel = d => d >= VIAGEM.estavelDesde && d <= VIAGEM.fim;
 const faseDe = d => FASES.find(f => d >= f.de && (!f.ate || d <= f.ate)) || null;
@@ -66,7 +97,7 @@ function itensDoTurno(turno, dia) {
     const p = P(id), e = E(id);
     let etiqueta = '';
     if (e.estado === 'em_uso') {
-      // nada a acrescentar
+      if (p.dias && p.dias.length && !p.dias.includes(deISO(dia).getDay())) continue;
     } else if (e.estado === 'introduzindo') {
       if (e.inicio && dia < e.inicio) continue;
       if (p.intro.tipo === 'adaptacao') {
@@ -246,11 +277,12 @@ const prateleira = () => DECOR.plantasRodape ? `<div class="prateleira">${DECOR.
 function render() {
   const mesmaAba = render.ultimaAba === vista.aba;
   const y = window.scrollY;
-  const telas = { hoje: telaHoje, estufa: telaEstufa, produtos: telaProdutos, calendario: telaCalendario, diario: telaDiario, guia: telaGuia };
+  const telas = { hoje: telaHoje, estufa: telaEstufa, produtos: telaProdutos, rotina: telaRotina, calendario: telaCalendario, diario: telaDiario, guia: telaGuia };
   const tela = document.getElementById('tela');
   tela.innerHTML = telas[vista.aba]() + (vista.festa ? festaHTML() : '');
   plantas(tela);
-  document.querySelectorAll('#abas button').forEach(b => b.setAttribute('aria-current', b.dataset.aba === vista.aba ? 'page' : 'false'));
+  const abaMenu = vista.aba === 'rotina' ? 'produtos' : vista.aba;
+  document.querySelectorAll('#abas button').forEach(b => b.setAttribute('aria-current', b.dataset.aba === abaMenu ? 'page' : 'false'));
   window.scrollTo(0, mesmaAba ? y : 0);
   render.ultimaAba = vista.aba;
 }
@@ -425,12 +457,14 @@ const ROTULOS = {
 };
 
 function telaProdutos() {
-  let h = `<header class="topo"><p class="sobre">Produtos</p><h1>O que você usa</h1></header>`;
+  let h = `<header class="topo"><p class="sobre">Produtos</p><h1>O que você usa</h1>
+    <div class="botoes"><button class="botao" data-acao="aba" data-aba="rotina">Editar a rotina</button></div></header>`;
   const repor = PRODUTOS.filter(p => E(p.id).repor);
   if (repor.length) h += `<div class="cartao aviso"><strong>Para comprar</strong><ul class="compras">${repor.map(p => `<li><span>${esc(p.curto)}</span><button class="botao leve" data-acao="comprei" data-id="${p.id}">Comprei</button></li>`).join('')}</ul></div>`;
   const grupos = [
-    ['Na rotina', p => ['em_uso', 'introduzindo'].includes(E(p.id).estado) && !p.gesto],
-    ['Próximos', p => ['pronto', 'teste', 'aguardando'].includes(E(p.id).estado)],
+    ['Na rotina', p => ['em_uso', 'introduzindo'].includes(E(p.id).estado) && !p.gesto && !removido(p.id)],
+    ['Próximos', p => ['pronto', 'teste', 'aguardando'].includes(E(p.id).estado) && !removido(p.id)],
+    ['Fora da rotina', p => removido(p.id)],
     ['Em pausa', p => E(p.id).estado === 'pausado'],
     ['Acabaram', p => E(p.id).estado === 'acabou'],
     ['Depois da viagem', p => E(p.id).estado === 'futuro']
@@ -471,6 +505,7 @@ function cartaoProduto(p) {
     extra = `Acabou em ${fmtCurto(e.acabouEm)}.`;
     if (!p.substituto || ['aguardando', 'pronto'].includes(E(p.substituto).estado)) botoes += `<button class="botao leve" data-acao="desfazerAcabou" data-id="${p.id}">Desfazer</button>`;
   }
+  if (removido(p.id)) { extra = `Fora da rotina desde ${fmtCurto(S.rotina.removidos[p.id])}.`; botoes = `<button class="botao leve" data-acao="trazerDeVolta" data-id="${p.id}">Trazer de volta</button>`; }
   return `<article class="produto">
     <button class="produto-topo" data-acao="abrir" data-chave="${chave}" aria-expanded="${!!aberto}">
       <span class="area">${p.area}</span>
@@ -752,6 +787,154 @@ function festaHTML() {
   </div></div>`;
 }
 
+// ---------- editar a rotina ----------
+const ORDEM_SEMANA = [1, 2, 3, 4, 5, 6, 0];   // seg → dom
+
+function resumoFrequencia(p) {
+  const e = E(p.id);
+  if (e.estado === 'introduzindo' && p.intro) return p.intro.tipo === 'adaptacao' ? `Começando: 1 vez ao dia (${p.intro.dias} dias)` : p.intro.niveis[e.nivel || 0].nome;
+  if (['aguardando', 'pronto', 'teste', 'futuro'].includes(e.estado)) return ROTULOS[e.estado];
+  if (e.estado === 'pausado') return 'Em pausa';
+  if (e.estado === 'acabou') return 'Acabou';
+  if (p.opcional) return 'Se precisar';
+  if (p.dias && p.dias.length) return diasTexto(p.dias);
+  return 'Todos os dias';
+}
+
+function linhaRotina(p, t, i, total) {
+  return `<li class="linha-rotina${['em_uso', 'introduzindo'].includes(E(p.id).estado) ? '' : ' planejado'}">
+    <span class="n">${i + 1}</span>
+    <span class="txt"><b>${esc(p.curto)}</b><small>${esc(resumoFrequencia(p))}</small></span>
+    <button class="mini" data-acao="moverPasso" data-turno="${t}" data-id="${p.id}" data-n="-1" ${i === 0 ? 'disabled' : ''} aria-label="Subir ${esc(p.curto)}">${icone('esq', 'gira')}</button>
+    <button class="mini" data-acao="moverPasso" data-turno="${t}" data-id="${p.id}" data-n="1" ${i === total - 1 ? 'disabled' : ''} aria-label="Descer ${esc(p.curto)}">${icone('dir', 'gira')}</button>
+    <button class="mini editar" data-acao="editarProduto" data-id="${p.id}" aria-label="Editar ${esc(p.curto)}">Editar</button>
+  </li>`;
+}
+
+function formularioProduto() {
+  const ed = vista.editando, p = ed.id ? P(ed.id) : null;
+  const turnos = p ? (p.turnos || ['manha', 'noite'].filter(t => ORDEM_ORIG[t].includes(p.id))) : [ed.turno || 'manha'];
+  const turnoAtual = turnos.length === 2 ? 'os-dois' : turnos[0];
+  const quando = p && p.opcional ? 'precisar' : p && p.dias && p.dias.length ? 'dias' : 'todos';
+  const dias = (p && p.dias) || [];
+  const radio = (nome, valor, rotulo, marcado) => `<label class="opcao"><input type="radio" name="${nome}" value="${valor}"${marcado ? ' checked' : ''}><span>${rotulo}</span></label>`;
+  const ultimo = PRODUTOS.map(q => ({ q, e: E(q.id) })).filter(x => x.e.inicio && difDias(x.e.inicio, HOJE) >= 0 && difDias(x.e.inicio, HOJE) < 7)[0];
+  return `<form class="cartao form-produto" data-form="produto"${p ? ` data-id="${p.id}"` : ''}>
+    <h2>${p ? `Editar: ${esc(p.curto)}` : 'Novo produto'}</h2>
+    <label class="rotulo" for="f-curto">Nome</label>
+    <input id="f-curto" name="curto" value="${p ? esc(p.curto) : ''}" placeholder="Ex.: Ácido hialurônico" required>
+    <p class="rotulo">Quando no dia</p>
+    <div class="opcoes">${radio('turno', 'manha', 'Manhã', turnoAtual === 'manha')}${radio('turno', 'noite', 'Noite', turnoAtual === 'noite')}${radio('turno', 'os-dois', 'Manhã e noite', turnoAtual === 'os-dois')}</div>
+    <p class="rotulo">Com que frequência</p>
+    <div class="opcoes">${radio('quando', 'todos', 'Todos os dias', quando === 'todos')}${radio('quando', 'dias', 'Só alguns dias', quando === 'dias')}${radio('quando', 'precisar', 'Se precisar', quando === 'precisar')}</div>
+    <div class="opcoes dias-semana">${ORDEM_SEMANA.map(d => `<label class="opcao dia-op"><input type="checkbox" name="dia" value="${d}"${dias.includes(d) ? ' checked' : ''}><span>${DIAS_CURTOS[d]}</span></label>`).join('')}</div>
+    <label class="rotulo" for="f-como">Como usar</label>
+    <textarea id="f-como" name="como" rows="2" placeholder="Ex.: 2 gotas, antes do óleo">${p ? esc(p.como || '') : ''}</textarea>
+    <label class="rotulo" for="f-obs">Observações</label>
+    <textarea id="f-obs" name="obs" rows="2">${p ? esc(p.obs || '') : ''}</textarea>
+    ${p ? '' : `<label class="opcao larga"><input type="checkbox" name="novo" value="sim" checked><span>É novo para a minha pele: começar devagar (1 vez ao dia por 7 dias)</span></label>
+      ${ultimo ? `<p class="nota-aviso">Lembrete do plano: uma novidade por semana. ${esc(ultimo.q.curto)} começou em ${fmtCurto(ultimo.e.inicio)}.</p>` : ''}`}
+    <div class="botoes"><button class="botao" type="submit">Salvar</button><button class="botao leve" type="button" data-acao="cancelarEdicao">Cancelar</button>
+      ${p ? `<button class="botao leve perigo" type="button" data-acao="tirarDaRotina" data-id="${p.id}">Tirar da rotina</button>` : ''}</div>
+  </form>`;
+}
+
+function telaRotina() {
+  let h = `<header class="topo"><p class="sobre">Sua rotina</p><h1>Editar a rotina</h1>
+    <button class="link" data-acao="aba" data-aba="produtos">← Voltar para Produtos</button></header>
+  <div class="fala">${Visino.desenha('dica')}<div class="balao"><p class="fala-msg"><b>Aqui a rotina é sua.</b> Acrescente produtos, mude a ordem, escolha os dias ou tire um passo. As regras do plano (as fases, os produtos que substituem os que acabam) continuam valendo.</p></div></div>`;
+  if (vista.editando) h += formularioProduto();
+  for (const t of ['manha', 'noite']) {
+    const ids = t === 'manha' ? ORDEM_MANHA : ORDEM_NOITE;
+    h += `<section class="cartao edicao-turno"><h2>${icone(t === 'manha' ? 'sol' : 'lua', 'ic-turno')} ${t === 'manha' ? 'Manhã' : 'Noite'}</h2>
+      <ol class="lista-rotina">${ids.map((id, i) => linhaRotina(P(id), t, i, ids.length)).join('')}</ol>
+      <button class="botao leve" data-acao="novoProduto" data-turno="${t}">+ Acrescentar ${t === 'manha' ? 'de manhã' : 'à noite'}</button></section>`;
+  }
+  const fora = PRODUTOS.filter(p => removido(p.id));
+  if (fora.length) h += `<section class="grupo"><h2>Fora da rotina</h2>${fora.map(p => `<div class="cartao fora"><b>${esc(p.curto)}</b><button class="botao leve" data-acao="trazerDeVolta" data-id="${p.id}">Trazer de volta</button></div>`).join('')}</section>`;
+  return h + `<p class="rodape">As mudanças ficam salvas neste aparelho. Para levá-las a outro, use Guia → Fazer cópia.</p>`;
+}
+
+function salvarProduto(f) {
+  const fd = new FormData(f);
+  const curto = String(fd.get('curto') || '').trim();
+  if (!curto) { toast('Dê um nome ao produto.'); return; }
+  const turno = fd.get('turno') || 'manha', quando = fd.get('quando') || 'todos';
+  const dias = quando === 'dias' ? fd.getAll('dia').map(Number) : null;
+  if (quando === 'dias' && !dias.length) { toast('Escolha pelo menos um dia.'); return; }
+  const dados = { curto, turnos: turno === 'os-dois' ? ['manha', 'noite'] : [turno], dias, opcional: quando === 'precisar',
+    como: String(fd.get('como') || '').trim(), obs: String(fd.get('obs') || '').trim() };
+  const id = f.dataset.id;
+  if (id) {
+    const extra = S.rotina.extras.find(x => x.id === id);
+    if (extra) Object.assign(extra, dados);
+    else S.rotina.ajustes[id] = { ...(S.rotina.ajustes[id] || {}), ...dados };
+    registrar('rotina_editada', { produto: id, detalhe: 'editou' });
+  } else {
+    const nid = 'meu-' + Date.now().toString(36);
+    const novo = fd.get('novo') === 'sim';
+    S.rotina.extras.push({ id: nid, nome: curto, area: 'Rosto', freq: '', inicial: 'em_uso', ...dados, ...(novo ? { intro: { tipo: 'adaptacao', dias: 7 } } : {}) });
+    S.produtos[nid] = novo ? { estado: 'introduzindo', inicio: HOJE, nivel: 0, nivelDesde: HOJE, turno: dados.turnos[0] } : { estado: 'em_uso' };
+    registrar('rotina_editada', { produto: nid, detalhe: novo ? 'acrescentou (novo para a pele)' : 'acrescentou' });
+  }
+  vista.editando = null;
+  aplicarRotina(); salvar(); render(); window.scrollTo(0, 0);
+  toast('Rotina atualizada ✓');
+}
+
+// ---------- exportar para planilha: as tabelas para os gráficos e o dashboard ----------
+const celula = v => { const s = v == null ? '' : String(v); return /[",\n\r;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+const csv = linhas => '﻿' + linhas.map(l => l.map(celula).join(',')).join('\r\n');
+const nomeProduto = id => (P(id) && P(id).curto) || id || '';
+const simNao = b => (b ? 'sim' : 'não');
+
+function tabelasDeUso() {
+  const primeiros = [...Object.keys(S.feitos), ...S.diario.map(r => r.dia), ...S.eventos.map(e => e.d)].filter(Boolean).sort();
+  const ini = primeiros[0] || HOJE;
+  const dias = [];
+  for (let d = ini; d <= HOJE; d = somaDias(d, 1)) dias.push(d);
+  const diarioDe = d => S.diario.filter(r => r.dia === d);
+
+  const tDias = [['data', 'dia_da_semana', 'fase', 'manha_feitos', 'manha_total', 'manha_completa', 'noite_feitos', 'noite_total', 'noite_completa', 'dia_completo', 'semana_perfeita', 'em_viagem', 'sintomas', 'reacao']];
+  for (const d of dias) {
+    const m = progresso(d, 'manha'), n = progresso(d, 'noite'), c = S.completos[d] || {}, f = faseDe(d);
+    const sint = [...new Set(diarioDe(d).flatMap(r => r.sintomas))];
+    tDias.push([d, DIAS_SEMANA[deISO(d).getDay()], f ? f.titulo : '', m.feitos, m.total, simNao(c.manha), n.feitos, n.total, simNao(c.noite), simNao(diaCompleto(d)),
+      simNao(S.estufa.semanas.includes(segundaDaSemana(d))), simNao(emViagem(d)), sint.join('; '), simNao(sint.some(x => SINTOMAS_ALERTA.includes(x)))]);
+  }
+  const tPassos = [['data', 'turno', 'ordem', 'produto', 'produto_id', 'feito', 'se_precisar']];
+  for (const d of dias) for (const t of ['manha', 'noite']) {
+    const f = feitosDe(d, t);
+    itensDoTurno(t, d).forEach((it, i) => tPassos.push([d, t === 'manha' ? 'manhã' : 'noite', i + 1, it.p.curto, it.p.id, simNao(f[it.p.id]), simNao(it.opcional)]));
+  }
+  const tEventos = [['data', 'hora', 'dia_da_semana', 'tipo', 'turno', 'produto', 'produto_id', 'detalhe']];
+  for (const e of S.eventos) {
+    const hora = new Date(e.t);
+    tEventos.push([e.d, fmtHora(e.t), DIAS_SEMANA[deISO(e.d).getDay()], e.tipo, e.turno ? (e.turno === 'manha' ? 'manhã' : 'noite') : '', nomeProduto(e.produto), e.produto || '', e.detalhe || '']);
+    void hora;
+  }
+  const tDiario = [['data', 'anotado_em', 'sintomas', 'reacao', 'produto_suspeito', 'anotacao']];
+  for (const r of [...S.diario].sort((a, b) => a.dia.localeCompare(b.dia) || a.criado - b.criado))
+    tDiario.push([r.dia, `${iso(new Date(r.criado))} ${fmtHora(r.criado)}`, r.sintomas.join('; '), simNao(r.sintomas.some(x => SINTOMAS_ALERTA.includes(x))), nomeProduto(r.produto), r.nota]);
+  const tProdutos = [['produto', 'produto_id', 'area', 'estado', 'na_rotina', 'frequencia', 'comecou_em', 'acabou_em', 'pausado_em', 'para_comprar', 'acrescentado_por_mim']];
+  for (const p of PRODUTOS) { const e = E(p.id); tProdutos.push([p.curto, p.id, p.area || '', ROTULOS[e.estado] || e.estado, simNao(!removido(p.id)), resumoFrequencia(p), e.inicio || '', e.acabouEm || '', e.pausadoEm || '', simNao(e.repor), simNao(String(p.id).startsWith('meu-'))]); }
+  return { dias: tDias, passos: tPassos, eventos: tEventos, diario: tDiario, produtos: tProdutos };
+}
+
+async function exportarPlanilhas() {
+  const t = tabelasDeUso();
+  const arquivos = Object.entries(t).map(([nome, linhas]) => new File([csv(linhas)], `velvet-${nome}-${HOJE}.csv`, { type: 'text/csv' }));
+  if (navigator.canShare && navigator.canShare({ files: arquivos })) {
+    try { await navigator.share({ files: arquivos, title: 'Velvet · dados de uso' }); } catch (e) { /* ela desistiu */ }
+    return;
+  }
+  for (const f of arquivos) {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    await new Promise(r => setTimeout(r, 400));
+  }
+}
+
 // ---------- Guia ----------
 function telaGuia() {
   let h = `<header class="topo"><p class="sobre">Guia</p><h1>Regras e dicas</h1></header><section class="grupo guia-dicas">`;
@@ -763,6 +946,10 @@ function telaGuia() {
   h += `</ol></section><section class="grupo"><h2>Seus dados</h2>
     <div class="cartao"><p>Tudo o que você marca fica guardado só neste aparelho. De vez em quando, faça uma cópia: se trocar de telefone, é só abrir a cópia aqui.</p>
     <div class="botoes"><button class="botao" data-acao="exportar">Fazer cópia</button><label class="botao leve">Abrir cópia<input type="file" accept="application/json,.json" data-campo="importar" hidden></label></div></div>
+    <div class="cartao"><strong>Dados para gráficos e dashboard</strong>
+    <p>Tudo o que você faz no Velvet fica registrado com data e hora: cada passo marcado, os dias completos, o diário, os produtos que começam, pausam ou acabam, os prêmios e as mudanças na rotina. Aqui você leva tudo em 5 planilhas (CSV), prontas para abrir no Google Planilhas ou no Excel.</p>
+    <p class="extra">${S.eventos.length} ${S.eventos.length === 1 ? 'registro' : 'registros'} até agora.</p>
+    <div class="botoes"><button class="botao" data-acao="exportarPlanilhas">Exportar para planilha</button></div></div>
     <p class="rodape">${esc(TEXTOS.rodape)}</p></section>`;
   return h;
 }
@@ -795,6 +982,7 @@ function comecar(id, data) {
   if (p.intro.tipo === 'teste') { e.estado = 'teste'; e.testeEm = data === HOJE ? Date.now() : deISO(data).getTime() + 9 * 3600000; }
   else { e.estado = 'introduzindo'; if (p.intro.tipo === 'adaptacao') e.turno = e.turno || 'manha'; }
   vista.desde = null;
+  registrar(p.intro.tipo === 'teste' ? 'produto_teste' : 'produto_comecou', { d: data, produto: id });
   salvar(); render();
   toast(p.intro.tipo === 'teste' ? 'Teste registrado. Observe a área.' : `${p.curto} entrou na rotina.`);
 }
@@ -812,8 +1000,13 @@ const ACOES = {
     const antes = diaCompleto(d), turnoAntes = progresso(d, t).completo;
     S.feitos[d] = S.feitos[d] || {}; S.feitos[d][t] = S.feitos[d][t] || {};
     if (S.feitos[d][t][id]) delete S.feitos[d][t][id]; else S.feitos[d][t][id] = true;
+    registrar(S.feitos[d][t][id] ? 'marcou' : 'desmarcou', { d, turno: t, produto: id });
     registrarDia(d);
+    if (progresso(d, t).completo && !turnoAntes) registrar('turno_completo', { d, turno: t });
+    if (diaCompleto(d) && !antes) registrar('dia_completo', { d });
     const novos = verificarPremios();
+    novos.semanas.forEach(seg => registrar('semana_perfeita', { d, detalhe: `semana de ${seg}` }));
+    novos.meses.forEach(m => registrar('mes_perfeito', { d, detalhe: m }));
     if (novos.semanas.length || novos.meses.length) vista.festa = novos;
     salvar(); render();
     if (vista.festa) return;
@@ -824,28 +1017,52 @@ const ACOES = {
     } else if (progresso(d, t).completo && S.feitos[d][t][id]) toast(t === 'manha' ? 'Manhã completa ✓ Vaporzinho na Estufa' : 'Noite completa ✓ Vaporzinho na Estufa');
   },
   outraDica: () => { vista.dica++; render(); },
+  exportarPlanilhas: () => exportarPlanilhas(),
+  novoProduto: el => { vista.editando = { id: null, turno: el.dataset.turno }; render(); window.scrollTo(0, 0); },
+  editarProduto: el => { vista.editando = { id: el.dataset.id }; render(); window.scrollTo(0, 0); },
+  cancelarEdicao: () => { vista.editando = null; render(); },
+  tirarDaRotina: el => {
+    const p = P(el.dataset.id);
+    if (!confirm(`Tirar ${p.curto} da rotina? Você pode trazer de volta quando quiser.`)) return;
+    S.rotina.removidos[p.id] = HOJE; registrar('rotina_editada', { produto: p.id, detalhe: 'tirou da rotina' });
+    vista.editando = null; aplicarRotina(); salvar(); render(); toast('Tirado da rotina.');
+  },
+  trazerDeVolta: el => {
+    delete S.rotina.removidos[el.dataset.id]; registrar('rotina_editada', { produto: el.dataset.id, detalhe: 'trouxe de volta' });
+    aplicarRotina(); salvar(); render(); toast('De volta à rotina.');
+  },
+  moverPasso: el => {
+    const t = el.dataset.turno, lista = [...(t === 'manha' ? ORDEM_MANHA : ORDEM_NOITE)];
+    const i = lista.indexOf(el.dataset.id), j = i + Number(el.dataset.n);
+    if (i < 0 || j < 0 || j >= lista.length) return;
+    [lista[i], lista[j]] = [lista[j], lista[i]];
+    S.rotina.ordem = { manha: [...ORDEM_MANHA], noite: [...ORDEM_NOITE], [t]: lista };
+    registrar('rotina_editada', { produto: el.dataset.id, turno: t, detalhe: Number(el.dataset.n) < 0 ? 'subiu na ordem' : 'desceu na ordem' });
+    aplicarRotina(); salvar(); render();
+  },
   verEstufa: () => { vista.festa = null; vista.aba = 'estufa'; render(); },
   fecharFesta: () => { vista.festa = null; render(); },
   comecar: el => comecar(el.dataset.id, HOJE),
   desde: el => { vista.desde = el.dataset.id; render(); },
-  testeOk: el => { const e = E(el.dataset.id); e.estado = 'introduzindo'; e.nivel = 0; e.nivelDesde = HOJE; salvar(); render(); toast('Combinado: começa devagar.'); },
+  testeOk: el => { const e = E(el.dataset.id); e.estado = 'introduzindo'; e.nivel = 0; e.nivelDesde = HOJE; registrar('produto_teste_ok', { produto: el.dataset.id }); salvar(); render(); toast('Combinado: começa devagar.'); },
   testeReacao: el => {
     const e = E(el.dataset.id);
     e.estado = 'pausado'; e.anterior = 'pronto'; e.pausadoEm = HOJE;
+    registrar('produto_reacao', { produto: el.dataset.id, detalhe: 'reação no teste' });
     salvar(); render(); toast('Produto em pausa. Lave a área com água.');
   },
-  confirmar: el => { E(el.dataset.id).estado = 'em_uso'; salvar(); render(); toast('Agora manhã e noite.'); },
-  subir: el => { const e = E(el.dataset.id); e.nivel = (e.nivel || 0) + 1; e.nivelDesde = HOJE; salvar(); render(); toast('Frequência aumentada.'); },
+  confirmar: el => { E(el.dataset.id).estado = 'em_uso'; registrar('produto_confirmado', { produto: el.dataset.id, detalhe: 'manhã e noite' }); salvar(); render(); toast('Agora manhã e noite.'); },
+  subir: el => { const e = E(el.dataset.id); e.nivel = (e.nivel || 0) + 1; e.nivelDesde = HOJE; registrar('produto_aumentou', { produto: el.dataset.id, detalhe: P(el.dataset.id).intro.niveis[e.nivel].nome }); salvar(); render(); toast('Frequência aumentada.'); },
   adiar: el => { S.adiados[el.dataset.id] = el.dataset.id === 'reavaliar' ? true : somaDias(HOJE, 7); salvar(); render(); },
   pausar: el => {
     const p = P(el.dataset.id), e = E(p.id);
     if (!confirm(`Pausar ${p.curto}? Ele sai da rotina até você retomar.`)) return;
-    e.anterior = e.estado; e.estado = 'pausado'; e.pausadoEm = HOJE; salvar(); render();
+    e.anterior = e.estado; e.estado = 'pausado'; e.pausadoEm = HOJE; registrar('produto_pausado', { produto: p.id }); salvar(); render();
   },
   retomar: el => {
     const e = E(el.dataset.id);
     e.estado = e.anterior === 'teste' ? 'pronto' : (e.anterior || 'em_uso');
-    delete e.pausadoEm; delete e.anterior; salvar(); render(); toast('De volta à rotina.');
+    delete e.pausadoEm; delete e.anterior; registrar('produto_retomado', { produto: el.dataset.id }); salvar(); render(); toast('De volta à rotina.');
   },
   acabou: el => {
     const p = P(el.dataset.id), e = E(p.id);
@@ -853,10 +1070,11 @@ const ACOES = {
       const sub = P(p.substituto);
       if (!confirm(`O ${p.curto} acabou? No lugar dele entra o ${sub.curto}, aos poucos.`)) return;
       e.estado = 'acabou'; e.acabouEm = HOJE;
+      registrar('produto_acabou', { produto: p.id, detalhe: `entra ${sub.curto}` });
       if (E(sub.id).estado === 'aguardando') E(sub.id).estado = 'pronto';
       salvar(); vista.aba = 'hoje'; vista.dia = HOJE; render(); toast(`${sub.curto}: veja quando começar.`);
     } else {
-      e.repor = true; salvar(); render(); toast('Está na lista de compras.');
+      e.repor = true; registrar('produto_acabou', { produto: p.id, detalhe: 'para comprar de novo' }); salvar(); render(); toast('Está na lista de compras.');
     }
   },
   desfazerAcabou: el => {
@@ -865,9 +1083,9 @@ const ACOES = {
     if (p.substituto && E(p.substituto).estado === 'pronto') E(p.substituto).estado = 'aguardando';
     salvar(); render();
   },
-  comprei: el => { E(el.dataset.id).repor = false; salvar(); render(); },
+  comprei: el => { E(el.dataset.id).repor = false; registrar('produto_comprado', { produto: el.dataset.id }); salvar(); render(); },
   turno: el => { const e = E(el.dataset.id); e.turno = e.turno === 'noite' ? 'manha' : 'noite'; salvar(); render(); },
-  spf: () => { (S.spf[HOJE] = S.spf[HOJE] || []).push(Date.now()); salvar(); render(); toast('Anotado. Próxima em 2 horas.'); },
+  spf: () => { (S.spf[HOJE] = S.spf[HOJE] || []).push(Date.now()); registrar('protetor_reaplicado', { produto: 'spf' }); salvar(); render(); toast('Anotado. Próxima em 2 horas.'); },
   sintoma: el => {
     const s = el.dataset.s, l = vista.form.sintomas;
     if (s === 'Pele bem') vista.form.sintomas = l.includes(s) ? [] : [s];
@@ -880,17 +1098,19 @@ const ACOES = {
     const dia = fm.dia && fm.dia <= HOJE ? fm.dia : HOJE;
     S.diario.push({ criado: Date.now(), dia, sintomas: fm.sintomas, produto: fm.produto, nota: fm.nota.trim() });
     const alerta = fm.sintomas.some(s => SINTOMAS_ALERTA.includes(s));
+    registrar('diario', { d: dia, produto: fm.produto || undefined, detalhe: fm.sintomas.join('; ') + (alerta ? ' (reação)' : '') });
     vista.resultado = alerta ? conselho(fm.produto) : null;
     vista.form = { sintomas: [], produto: '', nota: '' };
     salvar(); render(); window.scrollTo(0, 0); toast('Salvo no diário.');
   },
   apagarRegistro: el => {
     if (!confirm('Apagar esta anotação?')) return;
-    S.diario = S.diario.filter(r => String(r.criado) !== el.dataset.id); salvar(); render();
+    S.diario = S.diario.filter(r => String(r.criado) !== el.dataset.id); registrar('diario_apagado'); salvar(); render();
   },
   pausarSuspeito: el => {
     const e = E(el.dataset.id);
     e.anterior = e.estado; e.estado = 'pausado'; e.pausadoEm = HOJE;
+    registrar('produto_pausado', { produto: el.dataset.id, detalhe: 'reação anotada no diário' });
     vista.resultado = null; salvar(); render(); toast('Produto em pausa.');
   },
   exportar: () => {
@@ -941,13 +1161,14 @@ document.addEventListener('change', ev => {
       const s = JSON.parse(t);
       if (!s || !s.produtos || !s.feitos) throw new Error('formato');
       if (!confirm('Substituir os dados deste aparelho pela cópia?')) return;
-      localStorage.setItem(CHAVE, t); S = carregar(); render(); toast('Cópia aberta.');
+      localStorage.setItem(CHAVE, t); S = carregar(); aplicarRotina(); render(); toast('Cópia aberta.');
     }).catch(() => toast('Este arquivo não é uma cópia da rotina.'));
   }
 });
 
 document.addEventListener('submit', ev => {
   const f = ev.target;
+  if (f.dataset.form === 'produto') { ev.preventDefault(); salvarProduto(f); return; }
   if (f.dataset.form !== 'desde') return;
   ev.preventDefault();
   const d = f.elements.data.value;
@@ -964,8 +1185,11 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // os dias marcados antes do contador existir também contam
+aplicarRotina();
 for (const d of Object.keys(S.feitos)) if (!S.completos[d] && d <= HOJE) registrarDia(d);
 verificarPremios();
+registrar('abriu', { detalhe: new URLSearchParams(location.search).has('hoje') ? 'teste' : (navigator.standalone || matchMedia('(display-mode: standalone)').matches ? 'pelo ícone' : 'no navegador') });
+salvar();
 render();
 // quando chega uma versão nova do app, recarrega uma vez sozinho para mostrá-la logo
 if ('serviceWorker' in navigator && location.protocol === 'https:') {

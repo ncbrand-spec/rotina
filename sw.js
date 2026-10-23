@@ -1,6 +1,6 @@
 // Guarda o app no telefone para funcionar sem internet.
 // Ao publicar uma versão nova, mude o número abaixo.
-const VERSAO = 'rotina-v11';
+const VERSAO = 'rotina-v12';
 const ARQUIVOS = ['./', 'index.html', 'estilo.css', 'temas/mista.css', 'piante.js', 'folhas.js', 'visino.js', 'dicas.js', 'cadeado.js', 'instalar.js', 'app.js', 'dados.cifrados.json',
   'manifest.webmanifest', 'icones/icone-180.png', 'icones/icone-192.png', 'icones/icone-512.png'];
 const FONTES = ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'];

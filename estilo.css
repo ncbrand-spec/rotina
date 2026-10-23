@@ -522,3 +522,39 @@ body.trancado #abas { display: none; }
 .cel { position: relative; }
 .nota-cal { position: absolute; top: 5px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--malva); }
 .legenda i.diario { background: var(--malva); }
+
+
+/* ---------- editar a rotina ---------- */
+.topo .botoes { margin-top: 14px; }
+.edicao-turno { margin-bottom: 20px; }
+.edicao-turno h2 { display: flex; align-items: center; gap: 8px; font: 600 24px/1.2 var(--f-titulo); margin-bottom: 8px; }
+.lista-rotina { list-style: none; margin: 0 0 14px; padding: 0; }
+.linha-rotina { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid var(--linha); }
+.linha-rotina:first-child { border-top: 0; }
+.linha-rotina .n { width: 28px; height: 28px; flex: none; border-radius: 50%; border: 2px solid var(--tinta); display: grid; place-items: center; font-size: 13px; font-weight: 600; }
+.linha-rotina .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.linha-rotina .txt b { font-weight: 600; font-size: 15px; line-height: 1.3; }
+.linha-rotina .txt small { font-size: 12.5px; color: var(--cinza); }
+.linha-rotina.planejado .txt b { color: var(--cinza); font-weight: 500; }
+.mini { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; border: 1.5px solid var(--linha-forte); color: var(--tinta); }
+.mini:disabled { opacity: .3; }
+.mini .ic { width: 18px; height: 18px; }
+.mini .gira { transform: rotate(90deg); }
+.mini.editar { width: auto; padding: 0 12px; font-size: 13px; font-weight: 600; color: var(--primaria); }
+.form-produto { display: flex; flex-direction: column; }
+.form-produto h2 { font: 600 22px/1.2 var(--f-titulo); }
+.form-produto input[name=curto] { min-height: 48px; font-size: 16px; border-radius: 14px; border: 2px solid var(--tinta); background: var(--carta); padding: 0 14px; }
+.opcoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.opcao { position: relative; }
+.opcao input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opcao span { display: inline-flex; align-items: center; min-height: 42px; padding: 0 14px; border-radius: 999px; font-size: 14px; font-weight: 500; box-shadow: inset 0 0 0 2px var(--tinta); background: var(--bg); cursor: pointer; }
+.opcao input:checked + span { background: var(--verde); color: #fff; }
+.opcao input:focus-visible + span { outline: 3px solid var(--destaque); outline-offset: 2px; }
+.dias-semana { margin-top: 10px; }
+.dia-op span { min-width: 48px; justify-content: center; padding: 0 10px; }
+.form-produto:not(:has(input[name=quando][value=dias]:checked)) .dias-semana { display: none; }
+.opcao.larga { margin-top: 18px; }
+.opcao.larga input { position: static; opacity: 1; width: 20px; height: 20px; margin: 0 10px 0 0; accent-color: var(--verde); }
+.opcao.larga { display: flex; align-items: flex-start; }
+.opcao.larga span { display: inline; min-height: 0; padding: 0; box-shadow: none; background: none; font-size: 14px; }
+.cartao.fora { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

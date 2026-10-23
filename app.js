@@ -217,7 +217,7 @@ function acoesDeHoje() {
 }
 
 // ---------- tela ----------
-const vista = { aba: 'hoje', dia: HOJE, mes: HOJE.slice(0, 7), abertos: {}, form: { sintomas: [], produto: '', nota: '' }, resultado: null, desde: null, dica: 0, festa: null };
+const vista = { aba: 'hoje', dia: HOJE, mes: HOJE.slice(0, 7), abertos: {}, form: { sintomas: [], produto: '', nota: '' }, resultado: null, desde: null, dica: 0, festa: null, periodo: '30' };
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -519,12 +519,177 @@ function cartaoProduto(p) {
 }
 
 // ---------- Calendário ----------
+// ---------- o painel de progresso ----------
+// Tudo calculado das marcações guardadas no aparelho; o período escolhido vale para todos os números e gráficos.
+const PERIODOS = [['7', '7 dias'], ['30', '30 dias'], ['tudo', 'Tudo']];
+const pct = (a, b) => (b ? Math.round(a / b * 100) : 0);
+
+function estatisticas() {
+  const usados = [...Object.keys(S.feitos), ...Object.keys(S.completos)].filter(d => d <= HOJE).sort();
+  const ini = usados[0] || HOJE;
+  const n = vista.periodo === 'tudo' ? difDias(ini, HOJE) + 1 : Number(vista.periodo || 30);
+  const periodo = [];
+  for (let i = n - 1; i >= 0; i--) { const d = somaDias(HOJE, -i); if (d >= ini) periodo.push(d); }
+  // as taxas usam os dias já fechados; hoje entra só se já estiver completo (para não puxar a média para baixo à toa)
+  const avaliados = periodo.filter(d => d < HOJE || diaCompleto(d));
+  const c = d => S.completos[d] || {};
+  const manha = avaliados.filter(d => c(d).manha).length, noite = avaliados.filter(d => c(d).noite).length;
+  const diasOk = avaliados.filter(diaCompleto).length;
+
+  // por dia: a fração de passos feitos (manhã + noite), para o gráfico
+  const porDia = periodo.map(d => {
+    let total = 0, feitos = 0;
+    for (const t of ['manha', 'noite']) { const pr = progresso(d, t); total += pr.total; feitos += pr.feitos; }
+    return { d, total, feitos, valor: pct(feitos, total), completo: diaCompleto(d) };
+  });
+  // por dia da semana (seg → dom): turnos completos
+  const semana = [1, 2, 3, 4, 5, 6, 0].map(dow => {
+    const ds = avaliados.filter(d => deISO(d).getDay() === dow);
+    const ok = ds.reduce((a, d) => a + (c(d).manha ? 1 : 0) + (c(d).noite ? 1 : 0), 0);
+    return { dow, dias: ds.length, valor: pct(ok, ds.length * 2) };
+  });
+  // por produto: quantas vezes ficou sem marcar
+  const prod = {};
+  for (const d of avaliados) for (const t of ['manha', 'noite']) {
+    const f = feitosDe(d, t);
+    for (const it of itensDoTurno(t, d)) {
+      if (it.opcional) continue;
+      const x = prod[it.p.id] = prod[it.p.id] || { id: it.p.id, nome: it.p.curto, esperado: 0, pulou: 0 };
+      x.esperado++; if (!f[it.p.id]) x.pulou++;
+    }
+  }
+  const falhas = Object.values(prod).filter(x => x.pulou > 0).sort((a, b) => b.pulou / b.esperado - a.pulou / a.esperado || b.pulou - a.pulou).slice(0, 5);
+  // diário: os sinais mais comuns
+  const notas = S.diario.filter(r => r.dia >= (periodo[0] || HOJE) && r.dia <= HOJE);
+  const sinais = {};
+  for (const r of notas) for (const x of r.sintomas) sinais[x] = (sinais[x] || 0) + 1;
+  const problemas = Object.entries(sinais).filter(([x]) => x !== 'Pele bem').map(([nome, vezes]) => ({ nome, vezes, alerta: SINTOMAS_ALERTA.includes(nome) })).sort((a, b) => b.vezes - a.vezes).slice(0, 6);
+  const reacoes = notas.filter(r => r.sintomas.some(x => SINTOMAS_ALERTA.includes(x)));
+  const suspeitos = {};
+  for (const r of reacoes) if (r.produto) suspeitos[r.produto] = (suspeitos[r.produto] || 0) + 1;
+  const suspeito = Object.entries(suspeitos).sort((a, b) => b[1] - a[1])[0];
+  // horários: a primeira marcação de cada turno, a partir dos registros
+  const horas = { manha: [], noite: [] };
+  const primeiras = {};
+  for (const e of S.eventos) if (e.tipo === 'marcou' && e.turno && periodo.includes(e.d)) {
+    const k = e.d + e.turno; if (!primeiras[k] || e.t < primeiras[k].t) primeiras[k] = e;
+  }
+  for (const e of Object.values(primeiras)) { const h = new Date(e.t); horas[e.turno].push(h.getHours() * 60 + h.getMinutes()); }
+  const mediana = l => { if (!l.length) return null; const o = [...l].sort((a, b) => a - b); const m = o[Math.floor(o.length / 2)]; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+  return { ini, periodo, avaliados, manha, noite, diasOk, porDia, semana, falhas, problemas, reacoes, suspeito, notas,
+    constancia: pct(manha + noite, avaliados.length * 2), horaManha: mediana(horas.manha), horaNoite: mediana(horas.noite) };
+}
+
+// o que pode melhorar: frases curtas, tiradas dos números
+function conselhosDoPainel(e) {
+  const c = [];
+  if (!e.avaliados.length) return c;
+  const pm = pct(e.manha, e.avaliados.length), pn = pct(e.noite, e.avaliados.length);
+  if (Math.abs(pm - pn) >= 10) c.push(pm > pn
+    ? `<b>A noite é o seu ponto fraco:</b> ${pn}% das noites completas, contra ${pm}% das manhãs. Que tal deixar os produtos da noite à vista, perto da escova de dentes?`
+    : `<b>A manhã é o seu ponto fraco:</b> ${pm}% das manhãs completas, contra ${pn}% das noites. Separar tudo na pia na noite anterior ajuda.`);
+  if (e.falhas[0] && e.falhas[0].esperado >= 3) c.push(`<b>O passo que mais fica para trás é ${esc(e.falhas[0].nome)}:</b> pulado ${e.falhas[0].pulou} de ${e.falhas[0].esperado} vezes.`);
+  const comDias = e.semana.filter(x => x.dias > 0);
+  if (comDias.length >= 4) {
+    const pior = comDias.reduce((a, b) => (b.valor < a.valor ? b : a));
+    if (pior.valor < 80) c.push(`<b>${DIAS_SEMANA[pior.dow][0].toUpperCase() + DIAS_SEMANA[pior.dow].slice(1)} é o dia mais difícil</b> (${pior.valor}% dos turnos). Um lembrete nesse dia pode ajudar.`);
+  }
+  if (e.reacoes.length) c.push(`<b>${e.reacoes.length} ${e.reacoes.length === 1 ? 'sinal de reação anotado' : 'sinais de reação anotados'}</b>${e.suspeito ? `, mais ligados a ${esc(nomeProduto(e.suspeito[0]))}` : ''}. Se continuar, vale conversar com a dermatologista.`);
+  const seca = e.problemas.find(x => x.nome === 'Pele seca' || x.nome === 'Repuxando');
+  if (seca && seca.vezes >= 2) c.push(`<b>Pele seca ou repuxando apareceu ${seca.vezes} vezes.</b> Água morna em vez de quente e o hidratante logo depois do banho costumam ajudar.`);
+  if (e.constancia >= 85) c.push(`<b>${e.constancia}% de constância: está ótimo!</b> É esse ritmo que faz a pele mudar.`);
+  return c;
+}
+
+const mesAbrev = d => `${deISO(d).getDate()}/${deISO(d).getMonth() + 1}`;
+
+// colunas: um valor por dia (ou por semana, se o período for longo); uma cor só, hoje em destaque
+function graficoColunas(itens, opcoes = {}) {
+  const W = 340, H = 150, topo = 12, base = 22, esq = 30;
+  const n = itens.length, banda = (W - esq) / Math.max(n, 1), larg = Math.min(24, Math.max(3, banda - 2));
+  const y = v => topo + (H - topo - base) * (1 - v / 100);
+  let svg = `<svg class="grafico" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opcoes.titulo || '')}">`;
+  for (const v of [0, 50, 100]) svg += `<line x1="${esq}" x2="${W}" y1="${y(v)}" y2="${y(v)}" class="grade-linha"/><text x="${esq - 6}" y="${y(v) + 4}" class="eixo" text-anchor="end">${v}%</text>`;
+  itens.forEach((it, i) => {
+    const x = esq + i * banda + (banda - larg) / 2, h = Math.max(it.valor > 0 ? 2 : 0, (H - topo - base) * it.valor / 100);
+    const r = Math.min(4, larg / 2, h);
+    const yy = H - base - h;
+    svg += `<path class="barra${it.destaque ? ' destaque' : ''}" d="M${x} ${H - base}V${yy + r}Q${x} ${yy} ${x + r} ${yy}H${x + larg - r}Q${x + larg} ${yy} ${x + larg} ${yy + r}V${H - base}Z"/>`;
+    svg += `<rect class="alvo" x="${esq + i * banda}" y="${topo}" width="${banda}" height="${H - topo}" data-dica="${esc(it.dica)}" tabindex="0"/>`;
+    if (it.rotulo) svg += `<text x="${x + larg / 2}" y="${H - 6}" class="eixo" text-anchor="middle">${esc(it.rotulo)}</text>`;
+  });
+  return svg + '</svg>';
+}
+
+// barras deitadas com o valor na ponta; uma em destaque (a pior), as outras em cinza
+function graficoBarras(itens) {
+  return `<ul class="barras">${itens.map(it => `<li data-dica="${esc(it.dica)}" tabindex="0"><span class="b-nome">${esc(it.nome)}${it.marca ? ` <em>${esc(it.marca)}</em>` : ''}</span>
+    <span class="b-trilho"><i class="${it.destaque ? 'destaque' : ''}" style="width:${Math.max(2, it.valor)}%"></i></span><span class="b-valor">${esc(it.texto)}</span></li>`).join('')}</ul>`;
+}
+
+const tabelaSimples = (cab, linhas) => `<details class="ver-tabela"><summary>Ver os números</summary><table><thead><tr>${cab.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${linhas.map(l => `<tr>${l.map(v => `<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></details>`;
+
+function painelProgresso() {
+  const e = estatisticas(), per = vista.periodo || '30';
+  let h = `<div class="filtro-periodo" role="group" aria-label="Período">${PERIODOS.map(([v, n]) => `<button class="chip${per === v ? ' on' : ''}" data-acao="periodo" data-v="${v}" aria-pressed="${per === v}">${n}</button>`).join('')}</div>`;
+  if (!e.avaliados.length) {
+    return h + `<div class="fala">${Visino.desenha('dica')}<div class="balao"><p class="fala-msg"><b>Ainda não há dias fechados para mostrar.</b> Amanhã, com o primeiro dia completo, o painel começa a se encher.</p></div></div>`;
+  }
+  const nd = e.avaliados.length, seq = seguidos(), rec = recorde();
+  h += `<section class="kpis">
+    <div class="kpi heroi"><span class="kpi-rotulo">Constância</span><span class="kpi-valor">${e.constancia}%</span><span class="kpi-sub">dos turnos completos em ${nd} ${nd === 1 ? 'dia' : 'dias'}</span><div class="meta-barra"><i style="width:${e.constancia}%"></i></div></div>
+    <div class="kpi"><span class="kpi-rotulo">Dias completos</span><span class="kpi-valor">${e.diasOk} <small>de ${nd}</small></span></div>
+    <div class="kpi"><span class="kpi-rotulo">Dias seguidos</span><span class="kpi-valor">${seq}</span><span class="kpi-sub">recorde ${Math.max(rec, seq)}</span></div>
+    <div class="kpi"><span class="kpi-rotulo">Semanas perfeitas</span><span class="kpi-valor">${S.estufa.semanas.length}</span><span class="kpi-sub">${Math.min(S.estufa.semanas.length, CATALOGO.length)} plantas na Estufa</span></div>
+    <div class="kpi"><span class="kpi-rotulo">Horário típico</span><span class="kpi-valor kpi-horas">${e.horaManha || '—'} <small>manhã</small><br>${e.horaNoite || '—'} <small>noite</small></span></div>
+  </section>`;
+  const conselhos = conselhosDoPainel(e);
+  if (conselhos.length) h += `<div class="fala">${Visino.desenha(e.constancia >= 85 ? 'feliz' : 'dica')}<div class="balao"><p class="fala-msg"><b>O que eu vi nos seus números</b></p><ul class="conselhos">${conselhos.map(x => `<li>${x}</li>`).join('')}</ul></div></div>`;
+
+  // passos feitos por dia (por semana quando o período é longo)
+  let serie = e.porDia, porSemana = false;
+  if (serie.length > 45) {
+    porSemana = true;
+    const grupos = {};
+    for (const x of serie) { const k = segundaDaSemana(x.d); (grupos[k] = grupos[k] || { d: k, total: 0, feitos: 0 }); grupos[k].total += x.total; grupos[k].feitos += x.feitos; }
+    serie = Object.values(grupos).map(g => ({ ...g, valor: pct(g.feitos, g.total) }));
+  }
+  const passo = serie.length <= 10 ? 1 : serie.length <= 31 ? 5 : Math.ceil(serie.length / 6);
+  const colunas = serie.map((x, i) => ({ valor: x.valor, destaque: x.d === HOJE || (porSemana && x.d === segundaDaSemana(HOJE)),
+    rotulo: serie.length <= 10 ? DIAS_CURTOS[deISO(x.d).getDay()] : (i % passo === 0 ? mesAbrev(x.d) : ''),
+    dica: `${porSemana ? 'Semana de ' + mesAbrev(x.d) : fmtLongo(x.d)}: ${x.valor}% dos passos${x.d === HOJE ? ' (hoje, em andamento)' : ''}` }));
+  h += `<div class="paineis">
+  <section class="cartao painel"><h3>Passos feitos ${porSemana ? 'por semana' : 'por dia'}</h3><p class="painel-sub">Manhã e noite juntas. ${porSemana ? 'Em vermelho, a semana atual.' : 'Em vermelho, hoje (ainda em andamento).'}</p>
+    ${graficoColunas(colunas, { titulo: 'Passos feitos por dia' })}
+    ${tabelaSimples([porSemana ? 'Semana de' : 'Dia', 'Passos feitos'], serie.map(x => [porSemana ? mesAbrev(x.d) : fmtCurto(x.d), `${x.feitos} de ${x.total} (${x.valor}%)`]))}</section>`;
+  const pm = pct(e.manha, nd), pn = pct(e.noite, nd);
+  h += `<section class="cartao painel"><h3>Manhã ou noite?</h3><p class="painel-sub">Quantos turnos ficaram completos.</p>
+    ${graficoBarras([{ nome: 'Manhã', valor: pm, texto: `${pm}%`, destaque: pm < pn, dica: `Manhã: ${e.manha} de ${nd} completas` }, { nome: 'Noite', valor: pn, texto: `${pn}%`, destaque: pn < pm, dica: `Noite: ${e.noite} de ${nd} completas` }])}
+    ${tabelaSimples(['Turno', 'Completos'], [['Manhã', `${e.manha} de ${nd}`], ['Noite', `${e.noite} de ${nd}`]])}</section>`;
+  const comDias = e.semana.filter(x => x.dias > 0), pior = comDias.length ? comDias.reduce((a, b) => (b.valor < a.valor ? b : a)) : null;
+  h += `<section class="cartao painel"><h3>Dia da semana</h3><p class="painel-sub">Turnos completos em cada dia. ${pior ? `Em destaque, o mais difícil: ${DIAS_SEMANA[pior.dow]}.` : ''}</p>
+    ${graficoColunas(e.semana.map(x => ({ valor: x.valor, destaque: pior && x.dow === pior.dow && x.dias > 0, rotulo: DIAS_CURTOS[x.dow], dica: x.dias ? `${DIAS_SEMANA[x.dow]}: ${x.valor}% (${x.dias} ${x.dias === 1 ? 'dia' : 'dias'})` : `${DIAS_SEMANA[x.dow]}: ainda sem dias` })), { titulo: 'Turnos completos por dia da semana' })}
+    ${tabelaSimples(['Dia', 'Turnos completos'], e.semana.map(x => [DIAS_SEMANA[x.dow], x.dias ? `${x.valor}%` : '—']))}</section>`;
+  h += `<section class="cartao painel"><h3>Onde você mais falha</h3><p class="painel-sub">Os passos que mais ficaram sem marcar.</p>
+    ${e.falhas.length ? graficoBarras(e.falhas.map((x, i) => ({ nome: x.nome, valor: pct(x.pulou, x.esperado), texto: `${x.pulou} de ${x.esperado}`, destaque: i === 0, dica: `${x.nome}: pulado ${x.pulou} de ${x.esperado} vezes` })))
+      : '<p class="vazio-painel">Nenhum passo pulado neste período. Perfeito!</p>'}
+    ${e.falhas.length ? tabelaSimples(['Passo', 'Pulado'], e.falhas.map(x => [x.nome, `${x.pulou} de ${x.esperado} (${pct(x.pulou, x.esperado)}%)`])) : ''}</section>`;
+  h += `<section class="cartao painel"><h3>Problemas mais comuns</h3><p class="painel-sub">O que você anotou no diário${e.notas.length ? ` (${e.notas.length} ${e.notas.length === 1 ? 'anotação' : 'anotações'})` : ''}.</p>
+    ${e.problemas.length ? graficoBarras(e.problemas.map((x, i) => ({ nome: x.nome, marca: x.alerta ? 'reação' : '', valor: pct(x.vezes, e.problemas[0].vezes), texto: `${x.vezes}×`, destaque: i === 0, dica: `${x.nome}: ${x.vezes} ${x.vezes === 1 ? 'vez' : 'vezes'}` })))
+      : `<p class="vazio-painel">${e.notas.length ? 'Só «pele bem» no diário. Ótimo sinal!' : 'Nenhuma anotação no diário neste período.'}</p>`}
+    ${e.problemas.length ? tabelaSimples(['Sinal', 'Vezes'], e.problemas.map(x => [x.nome + (x.alerta ? ' (reação)' : ''), String(x.vezes)])) : ''}</section>
+  </div>`;
+  return h;
+}
+
 function telaCalendario() {
   const [a, m] = vista.mes.split('-').map(Number);
   const primeiro = `${vista.mes}-01`;
   const diasNoMes = new Date(a, m, 0).getDate();
   const vazio = (deISO(primeiro).getDay() + 6) % 7;
-  let h = `<header class="topo"><p class="sobre">Calendário</p><h1>O plano</h1></header>
+  let h = `<header class="topo"><p class="sobre">Progresso</p><h1>Como você está indo</h1></header>
+  ${window.Visino ? painelProgresso() : ''}
+  <h2 class="titulo-secao">Calendário e plano</h2>
   <div class="cal-grade"><section class="mes"><div class="mes-topo">
     <button class="seta" data-acao="mes" data-n="-1" aria-label="Mês anterior">${icone('esq')}</button>
     <h2>${MESES[m - 1]} ${a}</h2>
@@ -1017,6 +1182,7 @@ const ACOES = {
     } else if (progresso(d, t).completo && S.feitos[d][t][id]) toast(t === 'manha' ? 'Manhã completa ✓ Vaporzinho na Estufa' : 'Noite completa ✓ Vaporzinho na Estufa');
   },
   outraDica: () => { vista.dica++; render(); },
+  periodo: el => { vista.periodo = el.dataset.v; render(); },
   exportarPlanilhas: () => exportarPlanilhas(),
   novoProduto: el => { vista.editando = { id: null, turno: el.dataset.turno }; render(); window.scrollTo(0, 0); },
   editarProduto: el => { vista.editando = { id: el.dataset.id }; render(); window.scrollTo(0, 0); },
@@ -1146,6 +1312,22 @@ document.addEventListener('click', ev => {
   const f = ACOES[el.dataset.acao];
   if (f) f(el);
 });
+
+// a dica dos gráficos: ao passar o dedo ou o mouse (ou com o teclado) mostra o número daquele ponto
+function mostrarDica(el) {
+  let d = document.getElementById('dica-grafico');
+  if (!d) { d = document.createElement('div'); d.id = 'dica-grafico'; d.setAttribute('role', 'status'); document.body.appendChild(d); }
+  d.textContent = el.dataset.dica;
+  const r = el.getBoundingClientRect();
+  d.style.left = Math.min(window.innerWidth - 12, Math.max(12, r.left + r.width / 2)) + 'px';
+  d.style.top = (r.top + window.scrollY - 8) + 'px';
+  d.classList.add('ver');
+}
+const esconderDica = () => { const d = document.getElementById('dica-grafico'); if (d) d.classList.remove('ver'); };
+document.addEventListener('pointerover', ev => { const el = ev.target.closest && ev.target.closest('[data-dica]'); if (el) mostrarDica(el); });
+document.addEventListener('pointerout', ev => { if (ev.target.closest && ev.target.closest('[data-dica]')) esconderDica(); });
+document.addEventListener('focusin', ev => { const el = ev.target.closest && ev.target.closest('[data-dica]'); if (el) mostrarDica(el); else esconderDica(); });
+document.addEventListener('scroll', esconderDica, { passive: true });
 
 document.addEventListener('input', ev => {
   const c = ev.target.dataset.campo;

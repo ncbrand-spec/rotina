@@ -558,3 +558,55 @@ body.trancado #abas { display: none; }
 .opcao.larga { display: flex; align-items: flex-start; }
 .opcao.larga span { display: inline; min-height: 0; padding: 0; box-shadow: none; background: none; font-size: 14px; }
 .cartao.fora { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+
+/* ---------- o painel de progresso ---------- */
+.filtro-periodo { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 24px; }
+.kpi { display: flex; flex-direction: column; gap: 2px; padding: 16px; background: var(--carta); border: var(--card-borda); border-radius: var(--raio-grande); box-shadow: var(--card-sombra); }
+.kpi.heroi { grid-column: 1 / -1; }
+.kpi-rotulo { font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--cinza); }
+.kpi-valor { font: 600 30px/1.15 var(--f-texto); color: var(--tinta); }
+.kpi.heroi .kpi-valor { font-size: 52px; line-height: 1.05; }
+.kpi-valor small { font-size: 15px; font-weight: 500; color: var(--cinza); }
+.kpi-horas { font-size: 20px; line-height: 1.35; }
+.kpi-sub { font-size: 13px; color: var(--cinza); }
+.kpi .meta-barra { margin-top: 10px; }
+.conselhos { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.conselhos b { font-weight: 600; }
+.paineis { display: grid; gap: 20px; margin-bottom: 8px; }
+.painel { margin: 0; }
+.painel h3 { font: 600 20px/1.25 var(--f-titulo); }
+.painel-sub { font-size: 13px; color: var(--cinza); margin: 2px 0 12px; }
+.grafico { width: 100%; height: auto; display: block; overflow: visible; }
+.grafico .grade-linha { stroke: var(--linha); stroke-width: 1; }
+.grafico .eixo { font: 500 10px var(--f-texto); fill: var(--cinza); font-variant-numeric: tabular-nums; }
+.grafico .barra { fill: var(--verde); }
+.grafico .barra.destaque { fill: var(--primaria); }
+.grafico .alvo { fill: transparent; cursor: default; outline: none; }
+.grafico .alvo:hover, .grafico .alvo:focus-visible { fill: rgba(36, 24, 30, .05); }
+.barras { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.barras li { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "nome valor" "trilho trilho"; gap: 4px 10px; outline: none; border-radius: 8px; }
+.barras li:focus-visible { box-shadow: 0 0 0 3px var(--destaque); }
+.b-nome { grid-area: nome; font-size: 14px; font-weight: 500; }
+.b-nome em { font-style: normal; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--alerta-clara); color: var(--alerta); margin-left: 4px; }
+.b-valor { grid-area: valor; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.b-trilho { grid-area: trilho; height: 10px; border-radius: 999px; background: var(--linha); overflow: hidden; }
+.b-trilho i { display: block; height: 100%; border-radius: 0 4px 4px 0; background: rgba(36, 24, 30, .35); }
+.b-trilho i.destaque { background: var(--primaria); }
+.vazio-painel { font-size: 14px; color: var(--cinza); }
+.ver-tabela { margin-top: 12px; font-size: 13px; }
+.ver-tabela summary { cursor: pointer; color: var(--primaria); font-weight: 600; min-height: 32px; display: flex; align-items: center; }
+.ver-tabela table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+.ver-tabela th, .ver-tabela td { text-align: left; padding: 6px 4px; border-top: 1px solid var(--linha); font-variant-numeric: tabular-nums; }
+.ver-tabela th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--cinza); }
+.titulo-secao { font: 600 26px/1.2 var(--f-titulo); margin: 36px 0 16px; }
+#dica-grafico { position: absolute; z-index: 70; transform: translate(-50%, -100%); max-width: 240px; padding: 8px 12px; border-radius: 12px; background: var(--tinta); color: var(--bg); font-size: 13px; font-weight: 500; line-height: 1.35; pointer-events: none; opacity: 0; transition: opacity .12s; }
+#dica-grafico.ver { opacity: 1; }
+@media (min-width: 960px) {
+  .kpis { grid-template-columns: 1.6fr 1fr 1fr 1fr 1.2fr; }
+  .kpi.heroi { grid-column: auto; }
+  .paineis { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
+
+.kpi .meta-barra { flex: none; height: 8px; }

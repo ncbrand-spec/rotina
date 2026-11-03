@@ -639,3 +639,6 @@ body.trancado #abas { display: none; }
 .ingrediente dt:first-child { margin-top: 0; }
 .ingrediente dd { margin: 2px 0 0; }
 @media (min-width: 960px) { .lista-ingredientes { display: grid; grid-template-columns: 1fr 1fr; align-items: start; } }
+.link-ficha { display: block; min-height: 44px; margin-top: 4px; font-size: 14px; }
+.chips-ingredientes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.cartao.logica p { margin-top: 10px; font-size: 15px; line-height: 1.55; }

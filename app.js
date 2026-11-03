@@ -402,7 +402,7 @@ function turno(t, d) {
         ${it.etiqueta || it.opcional || E(p.id).repor ? `<span class="etiquetas">${it.etiqueta ? `<span class="etiqueta">${esc(it.etiqueta)}</span>` : ''}${it.opcional ? '<span class="etiqueta leve">Se precisar</span>' : ''}${E(p.id).repor ? '<span class="etiqueta aviso">Comprar</span>' : ''}</span>` : ''}</span>
       </button>
       <button class="info${aberto ? ' aberto' : ''}" data-acao="abrir" data-chave="${chave}" aria-label="Como usar ${esc(p.curto)}" aria-expanded="${!!aberto}">${icone('mais')}</button>
-      ${aberto ? `<div class="detalhe"><p>${esc(p.como)}</p>${p.obs ? `<p class="obs">${esc(p.obs)}</p>` : ''}</div>` : ''}
+      ${aberto ? `<div class="detalhe">${p.serve ? `<p><b>Para que serve:</b> ${esc(p.serve)}</p>` : ''}<p>${esc(p.como)}</p>${p.obs ? `<p class="obs">${esc(p.obs)}</p>` : ''}</div>` : ''}
     </li>`;
   });
   if (!itens.length) h += '<li class="vazio-lista">Nada neste turno.</li>';
@@ -558,7 +558,8 @@ function cartaoProduto(p) {
       <span class="selo ${e.estado}">${estado}</span>
     </button>
     ${extra ? `<p class="extra">${esc(extra)}</p>` : ''}
-    ${aberto ? `<dl class="ficha"><dt>Nome completo</dt><dd>${esc(p.nome)}</dd><dt>Como usar</dt><dd>${esc(p.como)}</dd><dt>Frequência</dt><dd>${esc(p.freq)}</dd>${p.obs ? `<dt>Observações</dt><dd>${esc(p.obs)}</dd>` : ''}</dl>` : ''}
+    ${!aberto && p.serve ? `<button class="link link-ficha" data-acao="abrir" data-chave="${chave}">Para que serve e como combina</button>` : ''}
+    ${aberto ? `<dl class="ficha">${p.serve ? `<dt>Para que serve</dt><dd>${esc(p.serve)}</dd>` : ''}${p.combina ? `<dt>Na sua rotina</dt><dd>${esc(p.combina)}</dd>` : ''}${(p.ingredientes || []).length ? `<dt>No guia de ingredientes</dt><dd class="chips-ingredientes">${p.ingredientes.map(n => `<button class="chip" data-acao="verIngrediente" data-nome="${esc(n)}">${esc(n)}</button>`).join('')}</dd>` : ''}<dt>Nome completo</dt><dd>${esc(p.nome)}</dd><dt>Como usar</dt><dd>${esc(p.como)}</dd><dt>Frequência</dt><dd>${esc(p.freq)}</dd>${p.obs ? `<dt>Observações</dt><dd>${esc(p.obs)}</dd>` : ''}</dl>` : ''}
     ${botoes ? `<div class="botoes">${botoes}</div>` : ''}
   </article>`;
 }
@@ -820,7 +821,9 @@ const recado = tipo => RECADOS[tipo][numeroDoDia(HOJE) % RECADOS[tipo].length];
 // Quando todas já apareceram, recomeça. O carinho também muda a cada dia, sem repetir os últimos.
 // A memória fica neste aparelho (é só uma comodidade: sem ela, o sorteio continua funcionando).
 // As dicas dos ingredientes (para que servem, como combinam) entram uma sim, uma não, até ela ver todas.
-const TEMAS_INGREDIENTES = ['serve', 'combina', 'cuidado', 'combinacoes'];
+const TEMAS_INGREDIENTES = ['meu-serve', 'meu-combina', 'serve', 'combina', 'cuidado', 'combinacoes'];
+const minuscula = t => (t[1] && t[1] === t[1].toLowerCase() ? t[0].toLowerCase() + t.slice(1) : t);
+const meusProdutos = PRODUTOS.filter(p => p.serve && !p.gesto && !['acabou', 'futuro'].includes(E(p.id).estado) && !removido(p.id));
 const TODAS_DICAS = [
   ...Object.entries(TEMAS_DICAS).flatMap(([tema, t]) => t.dicas.map(texto => ({ tema, nome: t.nome, texto }))),
   ...INGREDIENTES.flatMap(i => [
@@ -828,7 +831,11 @@ const TODAS_DICAS = [
     { tema: 'combina', nome: 'Boas combinações', texto: `${i.nome} — ${i.combina}` },
     ...(i.cuidado.startsWith('quase nenhum') ? [] : [{ tema: 'cuidado', nome: 'Atenção', texto: `${i.nome} — ${i.cuidado}` }])
   ]),
-  ...COMBINACOES.map(texto => ({ tema: 'combinacoes', nome: 'Regras de combinação', texto }))
+  ...COMBINACOES.map(texto => ({ tema: 'combinacoes', nome: 'Regras de combinação', texto })),
+  ...meusProdutos.flatMap(p => [
+    { tema: 'meu-serve', nome: 'Seus produtos', texto: `${p.curto} — ${minuscula(p.serve)}` },
+    ...(p.combina ? [{ tema: 'meu-combina', nome: 'Na sua rotina', texto: `${p.curto} — ${minuscula(p.combina)}` }] : [])
+  ])
 ];
 const MEMORIA_DICAS = 'velvet-dicas';
 const sortear = l => l[Math.floor(Math.random() * l.length)];
@@ -843,6 +850,8 @@ function novaDica(m) {
   const deIngrediente = d => TEMAS_INGREDIENTES.includes(d.tema);
   const vez = outroTema.filter(d => deIngrediente(d) !== deIngrediente({ tema: m.tema }));
   if (vez.length) outroTema = vez;
+  const meus = outroTema.filter(d => d.tema.startsWith('meu-'));     // os produtos dela primeiro
+  if (meus.length) outroTema = meus;
   const d = sortear(outroTema.length ? outroTema : livres);
   m.vistas = [...(m.vistas || []), d.texto]; m.texto = d.texto; m.tema = d.tema; m.dia = HOJE;
   return d;
@@ -1266,8 +1275,9 @@ function telaGuia() {
   for (const g of GUIA) h += `<article class="dica${g.destaque ? ' destaque' : ''}"><h3>${esc(g.titulo)}</h3><p>${esc(g.texto)}</p></article>`;
   h += `</section><section class="grupo ingredientes"><h2>Ingredientes: para que servem e como combinam</h2>
     <p class="grupo-sub">Toque num ingrediente para abrir. Informação geral: o rótulo do produto e a dermatologista têm a última palavra.</p>
+    ${TEXTOS.logica ? `<div class="cartao logica"><strong>Como a sua rotina se combina</strong>${TEXTOS.logica.map(t => `<p>${esc(t)}</p>`).join('')}</div>` : ''}
     <div class="cartao regras-ouro"><strong>Regras de ouro das combinações</strong><ul>${COMBINACOES.map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>
-    <div class="lista-ingredientes">${INGREDIENTES.map(i => `<details class="ingrediente"><summary>${esc(i.nome)}</summary><dl>
+    <div class="lista-ingredientes">${INGREDIENTES.map(i => `<details class="ingrediente" data-nome="${esc(i.nome)}"><summary>${esc(i.nome)}</summary><dl>
       <dt>Para que serve</dt><dd>${esc(i.serve[0].toUpperCase() + i.serve.slice(1))}</dd>
       <dt>Combina bem</dt><dd>${esc(i.combina[0].toUpperCase() + i.combina.slice(1))}</dd>
       <dt>Atenção</dt><dd>${esc(i.cuidado[0].toUpperCase() + i.cuidado.slice(1))}</dd></dl></details>`).join('')}</div></section>
@@ -1351,6 +1361,11 @@ const ACOES = {
       const m = metaDaSemana(d);
       toast(m.feitos === 7 ? 'Semana perfeita! 7 de 7 ✓' : `Dia completo! ${m.feitos} de 7 na semana ✓`);
     } else if (progresso(d, t).completo && S.feitos[d][t][id]) toast(t === 'manha' ? 'Manhã completa ✓ Vaporzinho na Estufa' : 'Noite completa ✓ Vaporzinho na Estufa');
+  },
+  verIngrediente: el => {
+    vista.aba = 'guia'; render();
+    const d = [...document.querySelectorAll('.ingrediente')].find(x => x.dataset.nome === el.dataset.nome);
+    if (d) { d.open = true; window.scrollTo(0, d.getBoundingClientRect().top + window.scrollY - 16); }
   },
   outraDica: () => { const m = lerDicas(); novaDica(m); guardarDicas(m); render(); },
   periodo: el => { vista.periodo = el.dataset.v; render(); },

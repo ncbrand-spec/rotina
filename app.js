@@ -814,26 +814,65 @@ const chip = (s, on, alerta) => `<button class="chip${on ? ' on' : ''}${alerta ?
 
 // ---------- o Visinho fala ----------
 const numeroDoDia = d => difDias('2026-01-01', d);
+const recado = tipo => RECADOS[tipo][numeroDoDia(HOJE) % RECADOS[tipo].length];
+
+// As dicas: uma por dia, sorteada entre as que ainda não apareceram e nunca do mesmo tema da anterior.
+// Quando todas já apareceram, recomeça. O carinho também muda a cada dia, sem repetir os últimos.
+// A memória fica neste aparelho (é só uma comodidade: sem ela, o sorteio continua funcionando).
+const TODAS_DICAS = Object.entries(TEMAS_DICAS).flatMap(([tema, t]) => t.dicas.map(texto => ({ tema, nome: t.nome, texto })));
+const MEMORIA_DICAS = 'velvet-dicas';
+const sortear = l => l[Math.floor(Math.random() * l.length)];
+function lerDicas() { try { return JSON.parse(localStorage.getItem(MEMORIA_DICAS)) || {}; } catch (e) { return {}; } }
+function guardarDicas(m) { try { localStorage.setItem(MEMORIA_DICAS, JSON.stringify(m)); } catch (e) { /* sem memória: tanto faz */ } }
+
+function novaDica(m) {
+  const vistas = new Set(m.vistas || []);
+  let livres = TODAS_DICAS.filter(d => !vistas.has(d.texto));
+  if (!livres.length) { m.vistas = []; livres = TODAS_DICAS.filter(d => d.texto !== m.texto); }
+  const outroTema = livres.filter(d => d.tema !== m.tema);
+  const d = sortear(outroTema.length ? outroTema : livres);
+  m.vistas = [...(m.vistas || []), d.texto]; m.texto = d.texto; m.tema = d.tema; m.dia = HOJE;
+  return d;
+}
+
+function dicaDeHoje() {
+  const m = lerDicas();
+  const atual = m.dia === HOJE && TODAS_DICAS.find(d => d.texto === m.texto);
+  if (atual) return atual;
+  const d = novaDica(m);
+  guardarDicas(m);
+  return d;
+}
+
+function carinhoDeHoje() {
+  const m = lerDicas();
+  if (m.carinhoDia === HOJE && CARINHOS.includes(m.carinho)) return m.carinho;
+  const recentes = (m.carinhos || []).slice(-30);
+  const c = sortear(CARINHOS.filter(x => !recentes.includes(x)));
+  m.carinhoDia = HOJE; m.carinho = c; m.carinhos = [...recentes, c];
+  guardarDicas(m);
+  return c;
+}
 
 function falaDoVisinho() {
   const meta = metaDaSemana(HOJE), seq = seguidos(), h = new Date().getHours();
-  const carinho = CARINHOS[(numeroDoDia(HOJE) + vista.dica) % CARINHOS.length];
+  const carinho = carinhoDeHoje();
   const reagiu = S.diario.some(r => r.dia === HOJE && r.sintomas.some(x => SINTOMAS_ALERTA.includes(x)));
   if (reagiu) return { estado: 'cuidado', texto: '<b>Vi no diário que a pele reagiu hoje.</b> Vá com calma: nada de produto novo e, se não passar, fale com a dermatologista.' };
   if (meta.feitos === 7) return { estado: 'semana', texto: '<b>Semana perfeita!</b> A sua Estufa ganhou um presente.' };
   if (diaCompleto(HOJE)) return { estado: 'feliz', texto: `<b>Dia completo!</b> ${meta.feitos} de 7 nesta semana. ${carinho}` };
   if (emViagem(HOJE)) return { estado: 'sol', texto: `<b>Modo ${esc(VIAGEM.lugar)}!</b> Chapéu, sombra e protetor reaplicado a cada 2 horas ao ar livre.` };
-  if (h >= 19) return { estado: 'noite', texto: `<b>Hora da rotina da noite.</b> ${carinho}` };
-  if (climaDaEstufa(umidade()) === 'sede') return { estado: 'dica', texto: '<b>As plantas da sua Estufa estão com sede.</b> Cada rotina completa é um vaporzinho para elas.' };
+  if (h >= 19) return { estado: 'noite', texto: `<b>${recado('noite')}</b> ${carinho}` };
+  if (climaDaEstufa(umidade()) === 'sede') return { estado: 'dica', texto: `<b>${recado('sede')}</b>` };
   return { estado: 'dica', texto: `<b>${carinho}</b>${seq > 1 ? ` Já são ${seq} dias seguidos!` : ''}` };
 }
 
 function falaHTML() {
   const f = falaDoVisinho();
-  const dica = DICAS[(numeroDoDia(HOJE) + vista.dica) % DICAS.length];
+  const dica = dicaDeHoje();
   return `<div class="fala">${Visino.desenha(f.estado)}<div class="balao">
     <p class="fala-msg">${f.texto}</p>
-    <p class="fala-dica"><em>Dica do dia:</em> ${esc(dica)}</p>
+    <p class="fala-dica"><em>Dica do dia · ${esc(dica.nome)}:</em> ${esc(dica.texto)}</p>
     <button class="fala-outra" data-acao="outraDica">Outra dica →</button>
   </div></div>`;
 }
@@ -1293,7 +1332,7 @@ const ACOES = {
       toast(m.feitos === 7 ? 'Semana perfeita! 7 de 7 ✓' : `Dia completo! ${m.feitos} de 7 na semana ✓`);
     } else if (progresso(d, t).completo && S.feitos[d][t][id]) toast(t === 'manha' ? 'Manhã completa ✓ Vaporzinho na Estufa' : 'Noite completa ✓ Vaporzinho na Estufa');
   },
-  outraDica: () => { vista.dica++; render(); },
+  outraDica: () => { const m = lerDicas(); novaDica(m); guardarDicas(m); render(); },
   periodo: el => { vista.periodo = el.dataset.v; render(); },
   exportarPlanilhas: () => exportarPlanilhas(),
   novoProduto: el => { vista.editando = { id: null, turno: el.dataset.turno }; render(); window.scrollTo(0, 0); },

@@ -557,7 +557,19 @@ body.trancado #abas { display: none; }
 .opcao.larga input { position: static; opacity: 1; width: 20px; height: 20px; margin: 0 10px 0 0; accent-color: var(--verde); }
 .opcao.larga { display: flex; align-items: flex-start; }
 .opcao.larga span { display: inline; min-height: 0; padding: 0; box-shadow: none; background: none; font-size: 14px; }
-.cartao.fora { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cartao.fora { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding: 14px 16px; }
+.cartao.fora .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cartao.fora .txt b { font-weight: 600; font-size: 15px; line-height: 1.3; }
+.cartao.fora .txt small { font-size: 13px; line-height: 1.35; color: var(--cinza); }
+.cartao.fora .botao { flex: none; }
+.grupo-sub { font-size: 14px; color: var(--cinza); margin: -4px 0 14px; }
+.form-intro { font-size: 14.5px; line-height: 1.5; color: var(--cinza); margin-top: 8px; }
+.plano-nota { margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: var(--destaque-claro); font-size: 14px; line-height: 1.5; }
+.plano-nota b { display: block; font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--aviso); margin-bottom: 4px; }
+.plano-nota p + p { margin-top: 6px; color: var(--cinza); }
+.mudar-lista { display: block; margin: 4px 0 0; font-size: 14px; }
+.turno-noite .mudar-lista { color: var(--noite-tinta); }
+.guia-rotina { margin-bottom: 24px; }
 
 
 /* ---------- o painel de progresso ---------- */

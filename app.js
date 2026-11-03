@@ -819,7 +819,17 @@ const recado = tipo => RECADOS[tipo][numeroDoDia(HOJE) % RECADOS[tipo].length];
 // As dicas: uma por dia, sorteada entre as que ainda não apareceram e nunca do mesmo tema da anterior.
 // Quando todas já apareceram, recomeça. O carinho também muda a cada dia, sem repetir os últimos.
 // A memória fica neste aparelho (é só uma comodidade: sem ela, o sorteio continua funcionando).
-const TODAS_DICAS = Object.entries(TEMAS_DICAS).flatMap(([tema, t]) => t.dicas.map(texto => ({ tema, nome: t.nome, texto })));
+// As dicas dos ingredientes (para que servem, como combinam) entram uma sim, uma não, até ela ver todas.
+const TEMAS_INGREDIENTES = ['serve', 'combina', 'cuidado', 'combinacoes'];
+const TODAS_DICAS = [
+  ...Object.entries(TEMAS_DICAS).flatMap(([tema, t]) => t.dicas.map(texto => ({ tema, nome: t.nome, texto }))),
+  ...INGREDIENTES.flatMap(i => [
+    { tema: 'serve', nome: 'Para que serve', texto: `${i.nome} — ${i.serve}` },
+    { tema: 'combina', nome: 'Boas combinações', texto: `${i.nome} — ${i.combina}` },
+    ...(i.cuidado.startsWith('quase nenhum') ? [] : [{ tema: 'cuidado', nome: 'Atenção', texto: `${i.nome} — ${i.cuidado}` }])
+  ]),
+  ...COMBINACOES.map(texto => ({ tema: 'combinacoes', nome: 'Regras de combinação', texto }))
+];
 const MEMORIA_DICAS = 'velvet-dicas';
 const sortear = l => l[Math.floor(Math.random() * l.length)];
 function lerDicas() { try { return JSON.parse(localStorage.getItem(MEMORIA_DICAS)) || {}; } catch (e) { return {}; } }
@@ -829,7 +839,10 @@ function novaDica(m) {
   const vistas = new Set(m.vistas || []);
   let livres = TODAS_DICAS.filter(d => !vistas.has(d.texto));
   if (!livres.length) { m.vistas = []; livres = TODAS_DICAS.filter(d => d.texto !== m.texto); }
-  const outroTema = livres.filter(d => d.tema !== m.tema);
+  let outroTema = livres.filter(d => d.tema !== m.tema);
+  const deIngrediente = d => TEMAS_INGREDIENTES.includes(d.tema);
+  const vez = outroTema.filter(d => deIngrediente(d) !== deIngrediente({ tema: m.tema }));
+  if (vez.length) outroTema = vez;
   const d = sortear(outroTema.length ? outroTema : livres);
   m.vistas = [...(m.vistas || []), d.texto]; m.texto = d.texto; m.tema = d.tema; m.dia = HOJE;
   return d;
@@ -1251,7 +1264,14 @@ function telaGuia() {
       <div class="botoes"><button class="botao" data-acao="aba" data-aba="rotina">Editar a rotina</button></div></div>
     <section class="grupo guia-dicas">`;
   for (const g of GUIA) h += `<article class="dica${g.destaque ? ' destaque' : ''}"><h3>${esc(g.titulo)}</h3><p>${esc(g.texto)}</p></article>`;
-  h += `</section><section class="grupo"><h2>${esc(TEXTOS.etapasTitulo)}</h2><ol class="etapas">`;
+  h += `</section><section class="grupo ingredientes"><h2>Ingredientes: para que servem e como combinam</h2>
+    <p class="grupo-sub">Toque num ingrediente para abrir. Informação geral: o rótulo do produto e a dermatologista têm a última palavra.</p>
+    <div class="cartao regras-ouro"><strong>Regras de ouro das combinações</strong><ul>${COMBINACOES.map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>
+    <div class="lista-ingredientes">${INGREDIENTES.map(i => `<details class="ingrediente"><summary>${esc(i.nome)}</summary><dl>
+      <dt>Para que serve</dt><dd>${esc(i.serve[0].toUpperCase() + i.serve.slice(1))}</dd>
+      <dt>Combina bem</dt><dd>${esc(i.combina[0].toUpperCase() + i.combina.slice(1))}</dd>
+      <dt>Atenção</dt><dd>${esc(i.cuidado[0].toUpperCase() + i.cuidado.slice(1))}</dd></dl></details>`).join('')}</div></section>
+  <section class="grupo"><h2>${esc(TEXTOS.etapasTitulo)}</h2><ol class="etapas">`;
   ETAPAS.forEach((c, i) => {
     h += `<li><span class="n">${i + 1}</span><div><h3>${esc(c.etapa)} <span class="quando">${esc(c.quando)}</span></h3><p>${esc(c.fazer)}</p><p class="obs">${esc(c.cuidado)}</p></div></li>`;
   });

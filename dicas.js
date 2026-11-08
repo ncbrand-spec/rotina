@@ -216,6 +216,14 @@ const TEMAS_DICAS = {
     'Planta trocada de vaso fica uns dias sentida. Pele com produto novo também: observe com calma.',
     'Até a alocásia mais linda perde uma folha às vezes. Um dia ruim de pele também passa.',
     'Luz filtrada faz bem às plantas de sombra. Para a pele, sombra e chapéu são a luz filtrada.'
+  ] },
+  visinho: { nome: 'Quem é o Visinho', dicas: [
+    'Visinho = «viso», rosto em italiano, + o «-inho» brasileiro. Um nome portitaliano, como você!',
+    'Minha prima Soniinha mora no PlantMOV. O nome dela vem de adansonii, por isso tem dois i!',
+    'As duas folhinhas na minha cabeça são um brotinho: eu também estou crescendo junto com a sua pele.',
+    'Cada rotina completa é um vaporzinho para mim e para as plantas da Estufa.',
+    'Eu fecho os olhinhos quando estou sereno e uso coroa quando você ganha uma plantinha.',
+    'Meu lugar preferido é a sua tela de início, bem pertinho de você.'
   ] }
 };
 
@@ -355,7 +363,11 @@ const CARINHOS = [
   'Sem pressa: a beleza cresce devagar.',
   'Você + rotina = dupla imbatível.',
   'Cuidar de você nunca é perda de tempo.',
-  'Mais um capítulo da sua pele feliz.'
+  'Mais um capítulo da sua pele feliz.',
+  'O Visinho tá orgulhoso!',
+  'Missão cumprida, diz o Visinho!',
+  'Visinho e você: dupla de veludo.',
+  'O Visinho bate palminhas para você!'
 ];
 
 // o recado do Visinho em situações que se repetem: varia um pouco para não cansar
@@ -366,5 +378,12 @@ const RECADOS = {
     'A Estufa está sequinha. Uma rotina completa hoje e as plantas voltam a brilhar.',
     'As folhas da Estufa estão pedindo água: cada turno completo é uma borrifada.',
     'A umidade da Estufa caiu. Que tal completar a manhã e a noite hoje?'
+  ],
+  // de vez em quando ele se apresenta: [título, texto]
+  apresentacao: [
+    ['Oi! Eu sou o Visinho.', '«Viso» é rosto em italiano; o «-inho» é brasileiro. Cuido da sua pele junto com você!'],
+    ['Lembra de mim? Sou o Visinho!', 'Um rostinho portitaliano que torce por você todo dia.'],
+    ['Visinho na área!', 'Minha prima Soniinha cuida dos vídeos no PlantMOV; eu cuido da sua pele aqui.'],
+    ['Oi, sou eu, o Visinho!', 'Meu nome é metade italiano, metade brasileiro. E todo carinho.']
   ]
 };

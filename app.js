@@ -868,6 +868,17 @@ function dicaDeHoje() {
   return d;
 }
 
+// uma vez por semana (e na primeira vez) o Visinho se apresenta, o dia inteiro;
+// a primeira apresentação é a que explica o nome, depois elas se revezam em ordem
+function apresentacaoDeHoje() {
+  const m = lerDicas();
+  if (m.apresentou !== HOJE) {
+    if (m.apresentou && difDias(m.apresentou, HOJE) < 7) return null;
+    m.apresentou = HOJE; m.apresentacoes = (m.apresentacoes || 0) + 1; guardarDicas(m);
+  }
+  return RECADOS.apresentacao[(m.apresentacoes - 1) % RECADOS.apresentacao.length];
+}
+
 function carinhoDeHoje() {
   const m = lerDicas();
   if (m.carinhoDia === HOJE && CARINHOS.includes(m.carinho)) return m.carinho;
@@ -886,6 +897,8 @@ function falaDoVisinho() {
   if (a.fechouHoje) return { estado: 'semana', texto: `<b>${META_SEGUIDOS} dias seguidos!</b> A sua Estufa ganhou um presente.` };
   if (diaCompleto(HOJE)) return { estado: 'feliz', texto: `<b>Dia completo!</b> ${a.atual} de ${META_SEGUIDOS} rumo à próxima plantinha. ${carinho}` };
   if (emViagem(HOJE)) return { estado: 'sol', texto: `<b>Modo ${esc(VIAGEM.lugar)}!</b> Chapéu, sombra e protetor reaplicado a cada 2 horas ao ar livre.` };
+  const ola = apresentacaoDeHoje();
+  if (ola) return { estado: 'acordada', texto: `<b>${ola[0]}</b> ${ola[1]}` };
   if (h >= 19) return { estado: 'noite', texto: `<b>${recado('noite')}</b> ${carinho}` };
   if (climaDaEstufa(umidade()) === 'sede') return { estado: 'dica', texto: `<b>${recado('sede')}</b>` };
   return { estado: 'dica', texto: `<b>${carinho}</b>${seq > 1 ? ` Já são ${seq} dias seguidos!` : ''}` };

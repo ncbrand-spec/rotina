@@ -300,6 +300,8 @@ textarea { resize: vertical; }
 .subrotulo.alerta { color: var(--alerta); }
 .chip.area.on { background: var(--tinta); }
 .chip.fator.on { background: var(--malva-escura); }
+.campo-outro { width: 100%; min-height: 48px; margin-top: 10px; font-size: 16px; border-radius: 14px; border: 2px solid var(--tinta); background: var(--carta); padding: 0 14px; }
+.mais-climas { display: block; min-height: 44px; margin-top: 2px; font-size: 14px; }
 .resposta-diario { margin-bottom: 20px; }
 .reg-cabeca { display: flex; align-items: center; gap: 12px; }
 .reg-rosto { width: 44px; height: 44px; flex: none; }

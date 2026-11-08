@@ -247,7 +247,7 @@ function acoesDeHoje() {
 }
 
 // ---------- tela ----------
-const vista = { aba: 'hoje', dia: HOJE, mes: HOJE.slice(0, 7), abertos: {}, form: { nivel: null, sintomas: [], areas: [], fatores: [], produto: '', nota: '' }, resultado: null, desde: null, dica: 0, festa: null, periodo: '30' };
+const vista = { aba: 'hoje', dia: HOJE, mes: HOJE.slice(0, 7), abertos: {}, form: { nivel: null, sintomas: [], areas: [], fatores: [], outro: '', verOutro: false, todosClimas: false, produto: '', nota: '' }, resultado: null, desde: null, dica: 0, festa: null, periodo: '30' };
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -650,7 +650,7 @@ function conselhosDoPainel(e) {
   if (comNivel.length >= 5) {
     const media = l => l.reduce((a, x) => a + x.n, 0) / l.length;
     let pior = null;
-    for (const f of FATORES) {
+    for (const f of new Set(comNivel.flatMap(x => [...x.f]))) {
       const com = comNivel.filter(x => x.f.has(f)), sem = comNivel.filter(x => !x.f.has(f));
       if (com.length < 2 || sem.length < 2) continue;
       const dif = media(sem) - media(com);
@@ -800,13 +800,26 @@ function telaCalendario() {
 // Os sinais de reação vêm do plano (SINTOMAS_ALERTA); o resto é geral e mora aqui.
 const NIVEIS_PELE = { 5: ['Ótima', 'feliz'], 4: ['Boa', 'acordada'], 3: ['Mais ou menos', 'neutro'], 2: ['Ruim', 'cuidado'], 1: ['Péssima', 'triste'] };
 const SINAIS = [
-  ['Hidratação', ['Seca', 'Repuxando', 'Oleosa', 'Bem hidratada']],
+  ['Hidratação', ['Seca', 'Repuxando', 'Descamando um pouco', 'Lábios ressecados', 'Oleosa', 'Bem hidratada']],
   ['Aparência', ['Luminosa', 'Sem brilho', 'Espinhas', 'Cravos', 'Manchas mais escuras', 'Manchas mais claras', 'Olheiras', 'Olhos inchados', 'Textura áspera']]
 ];
 const SINAIS_BONS = ['Bem hidratada', 'Luminosa', 'Manchas mais claras'];
 const AREAS = ['Testa', 'Nariz', 'Bochechas', 'Queixo', 'Em volta dos olhos', 'Pescoço', 'Axilas', 'Virilha'];
-const FATORES = ['Dormi mal', 'Estresse', 'Muito sol', 'Calor e suor', 'Ar-condicionado', 'Viagem ou avião', 'Bebi pouca água', 'Ciclo (TPM)', 'Maquiagem', 'Exercício', 'Depilação', 'Produto novo'];
-const formVazio = () => ({ nivel: null, sintomas: [], areas: [], fatores: [], produto: '', nota: '' });
+// o clima muda com a estação (ela mora no hemisfério norte) e com a viagem, que é para o calor
+const CLIMAS = {
+  frio: ['Frio', 'Vento', 'Aquecedor ligado', 'Ar seco', 'Chuva e umidade'],
+  calor: ['Muito sol', 'Calor e suor', 'Ar-condicionado', 'Praia ou piscina', 'Umidade alta'],
+  meio: ['Frio', 'Vento', 'Muito sol', 'Chuva e umidade', 'Mudança de tempo']
+};
+const TODOS_CLIMAS = [...new Set(Object.values(CLIMAS).flat())];
+function estacaoDe(d) {
+  if (emViagem(d)) return 'calor';
+  const m = deISO(d).getMonth() + 1;
+  return [11, 12, 1, 2, 3].includes(m) ? 'frio' : [6, 7, 8].includes(m) ? 'calor' : 'meio';
+}
+const FATORES_DIA = ['Dormi mal', 'Estresse', 'Bebi pouca água', 'Banho muito quente', 'Ciclo (TPM)', 'Maquiagem', 'Exercício', 'Depilação', 'Viagem ou avião', 'Produto novo'];
+const FATORES = [...TODOS_CLIMAS, ...FATORES_DIA];
+const formVazio = () => ({ nivel: null, sintomas: [], areas: [], fatores: [], outro: '', verOutro: false, todosClimas: false, produto: '', nota: '' });
 
 // as anotações de antes do diário novo: «Pele bem» vira «Boa» na escala, e os nomes antigos ganham os novos
 function atualizarDiario() {
@@ -830,7 +843,8 @@ function nivelDoDia(d) {
 function respostaDoDiario(r) {
   const tem = x => r.sintomas.includes(x) || r.fatores.includes(x);
   const dicas = [
-    [['Seca', 'Repuxando'], 'Pele seca pede hidratante com a pele ainda úmida, logo depois do banho, e água morna em vez de quente.'],
+    [['Seca', 'Repuxando', 'Descamando um pouco'], 'Pele seca pede hidratante com a pele ainda úmida, logo depois do banho, e água morna em vez de quente.'],
+    [['Lábios ressecados'], 'Lábios ressecados: protetor labial durante o dia e uma camada generosa de bálsamo antes de dormir. Nada de arrancar as pelinhas.'],
     [['Oleosa'], 'Pele oleosa também precisa de hidratação: prefira texturas leves e não lave o rosto mais vezes do que o normal.'],
     [['Espinhas', 'Cravos'], 'Nada de apertar: em pele morena, espinha apertada vira mancha. Mãos longe do rosto e fronha limpa ajudam.'],
     [['Manchas mais escuras'], 'Manchas escurecem com sol, calor e irritação. Protetor reaplicado e paciência: os ativos levam semanas.'],
@@ -838,6 +852,8 @@ function respostaDoDiario(r) {
     [['Sem brilho', 'Textura áspera'], 'Pele opaca costuma ser pele com sede ou cansada: hidratante, água e uma noite bem dormida.'],
     [['Dormi mal'], 'Noite mal dormida aparece na pele. Hoje, capriche no hidratante e tente deitar mais cedo.'],
     [['Estresse'], 'Estresse também mexe com a pele. Três respirações fundas antes da rotina já ajudam.'],
+    [['Frio', 'Vento', 'Aquecedor ligado', 'Ar seco'], 'Frio, vento e aquecedor tiram água da pele: creme mais denso à noite, protetor labial e um umidificador no quarto ajudam muito.'],
+    [['Banho muito quente'], 'Banho muito quente tira a oleosidade natural da pele: água morna, banho mais curto e hidratante logo depois.'],
     [['Muito sol', 'Calor e suor'], 'Depois de um dia de sol ou calor: lave o rosto com água fresca, hidrate e nada de ativos fortes hoje.'],
     [['Depilação'], 'Depois de depilar, espere a pele acalmar antes de usar ativos na região.']
   ];
@@ -875,7 +891,13 @@ function telaDiario() {
     ${SINAIS.map(([t, l]) => `<p class="subrotulo">${t}</p>${chips('sintomas', l)}`).join('')}
     <p class="subrotulo alerta">Sinais de reação</p>${chips('sintomas', SINTOMAS_ALERTA, 'alerta')}
     ${fm.sintomas.some(s => !SINAIS_BONS.includes(s)) ? `<p class="rotulo">Onde?</p>${chips('areas', AREAS, 'area')}` : ''}
-    <p class="rotulo">${hoje ? 'O que aconteceu hoje?' : 'O que aconteceu nesse dia?'}</p>${chips('fatores', FATORES, 'fator')}
+    <p class="rotulo">${hoje ? 'O que aconteceu hoje?' : 'O que aconteceu nesse dia?'}</p>
+    <p class="subrotulo">${{ frio: 'Clima de frio', calor: emViagem(dia) ? `Clima de ${esc(VIAGEM.lugar)}` : 'Clima de calor', meio: 'Clima' }[estacaoDe(dia)]}</p>
+    ${chips('fatores', fm.todosClimas ? TODOS_CLIMAS : [...new Set([...CLIMAS[estacaoDe(dia)], ...fm.fatores.filter(f => TODOS_CLIMAS.includes(f))])], 'fator')}
+    ${fm.todosClimas ? '' : '<button type="button" class="link mais-climas" data-acao="todosClimas">Ver todas as opções de clima</button>'}
+    <p class="subrotulo">Seu dia</p>
+    <div class="chips">${FATORES_DIA.map(s => chip(s, fm.fatores.includes(s), 'fatores', 'fator')).join('')}<button type="button" class="chip fator${fm.verOutro ? ' on' : ''}" data-acao="outroFator" aria-pressed="${fm.verOutro}">Outro…</button></div>
+    ${fm.verOutro ? `<input class="campo-outro" type="text" data-campo="outro" value="${esc(fm.outro)}" placeholder="Escreva o que aconteceu (ex.: festa até tarde)" maxlength="60" aria-label="Outra coisa que aconteceu">` : ''}
     <label class="rotulo" for="produto">Desconfia de algum produto?</label>
     <select id="produto" data-campo="produto"><option value="">Nenhum / não sei</option>${candidatos.map(p => `<option value="${p.id}"${fm.produto === p.id ? ' selected' : ''}>${esc(p.curto)}${E(p.id).estado !== 'em_uso' ? ' (novo)' : ''}</option>`).join('')}</select>
     <label class="rotulo" for="nota">Anotação</label>
@@ -1577,6 +1599,8 @@ const ACOES = {
   comprei: el => { E(el.dataset.id).repor = false; registrar('produto_comprado', { produto: el.dataset.id }); salvar(); render(); },
   turno: el => { const e = E(el.dataset.id); e.turno = e.turno === 'noite' ? 'manha' : 'noite'; salvar(); render(); },
   spf: () => { (S.spf[HOJE] = S.spf[HOJE] || []).push(Date.now()); registrar('protetor_reaplicado', { produto: 'spf' }); salvar(); render(); toast('Anotado. Próxima em 2 horas.'); },
+  todosClimas: () => { vista.form.todosClimas = true; render(); },
+  outroFator: () => { vista.form.verOutro = !vista.form.verOutro; render(); if (vista.form.verOutro) { const c = document.querySelector('.campo-outro'); if (c) c.focus(); } },
   nivel: el => { const n = Number(el.dataset.n); vista.form.nivel = vista.form.nivel === n ? null : n; render(); },
   marcarChip: el => {
     const g = el.dataset.grupo, s = el.dataset.s, l = vista.form[g];
@@ -1586,9 +1610,10 @@ const ACOES = {
   },
   salvarDiario: () => {
     const fm = vista.form;
-    if (!fm.nivel && !fm.sintomas.length && !fm.fatores.length && !fm.nota.trim()) { toast('Toque em como está a pele ou anote algo.'); return; }
+    const outro = fm.verOutro ? fm.outro.trim() : '';
+    if (!fm.nivel && !fm.sintomas.length && !fm.fatores.length && !outro && !fm.nota.trim()) { toast('Toque em como está a pele ou anote algo.'); return; }
     const dia = fm.dia && fm.dia <= HOJE ? fm.dia : HOJE;
-    const r = { criado: Date.now(), dia, nivel: fm.nivel, sintomas: fm.sintomas, areas: fm.areas, fatores: fm.fatores, produto: fm.produto, nota: fm.nota.trim() };
+    const r = { criado: Date.now(), dia, nivel: fm.nivel, sintomas: fm.sintomas, areas: fm.areas, fatores: [...fm.fatores, ...(outro ? [outro] : [])], produto: fm.produto, nota: fm.nota.trim() };
     S.diario.push(r);
     const alerta = r.sintomas.some(s => SINTOMAS_ALERTA.includes(s));
     registrar('diario', { d: dia, produto: fm.produto || undefined, detalhe: [r.nivel ? NIVEIS_PELE[r.nivel][0] : '', ...r.sintomas, ...r.fatores].filter(Boolean).join('; ') + (alerta ? ' (reação)' : '') });
@@ -1659,6 +1684,7 @@ document.addEventListener('scroll', esconderDica, { passive: true });
 document.addEventListener('input', ev => {
   const c = ev.target.dataset.campo;
   if (c === 'nota') vista.form.nota = ev.target.value;
+  if (c === 'outro') vista.form.outro = ev.target.value;
 });
 
 document.addEventListener('change', ev => {

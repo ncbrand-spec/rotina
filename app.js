@@ -798,7 +798,7 @@ function telaCalendario() {
 // ---------- Diário ----------
 // Cada anotação: como a pele está (1 a 5), o que você notou, onde, o que aconteceu no dia, produto suspeito e anotação.
 // Os sinais de reação vêm do plano (SINTOMAS_ALERTA); o resto é geral e mora aqui.
-const NIVEIS_PELE = { 5: ['Ótima', 'feliz'], 4: ['Bem', 'acordada'], 3: ['Mais ou menos', 'neutro'], 2: ['Não muito bem', 'cuidado'], 1: ['Mal', 'triste'] };
+const NIVEIS_PELE = { 5: ['Ótima', 'feliz'], 4: ['Boa', 'acordada'], 3: ['Mais ou menos', 'neutro'], 2: ['Ruim', 'cuidado'], 1: ['Péssima', 'triste'] };
 const SINAIS = [
   ['Hidratação', ['Seca', 'Repuxando', 'Oleosa', 'Bem hidratada']],
   ['Aparência', ['Luminosa', 'Sem brilho', 'Espinhas', 'Cravos', 'Manchas mais escuras', 'Manchas mais claras', 'Olheiras', 'Olhos inchados', 'Textura áspera']]
@@ -808,7 +808,7 @@ const AREAS = ['Testa', 'Nariz', 'Bochechas', 'Queixo', 'Em volta dos olhos', 'P
 const FATORES = ['Dormi mal', 'Estresse', 'Muito sol', 'Calor e suor', 'Ar-condicionado', 'Viagem ou avião', 'Bebi pouca água', 'Ciclo (TPM)', 'Maquiagem', 'Exercício', 'Depilação', 'Produto novo'];
 const formVazio = () => ({ nivel: null, sintomas: [], areas: [], fatores: [], produto: '', nota: '' });
 
-// as anotações de antes do diário novo: «Pele bem» vira «Bem» na escala, e os nomes antigos ganham os novos
+// as anotações de antes do diário novo: «Pele bem» vira «Boa» na escala, e os nomes antigos ganham os novos
 function atualizarDiario() {
   const NOVOS = { 'Pele seca': 'Seca', 'Oleosa demais': 'Oleosa' };
   for (const r of S.diario) {

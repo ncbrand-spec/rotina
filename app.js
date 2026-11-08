@@ -165,11 +165,8 @@ function registrarDia(d) {
 }
 const diaCompleto = d => !!(S.completos[d] && S.completos[d].manha && S.completos[d].noite);
 
-function metaDaSemana(d) {
-  const ini = segundaDaSemana(d);
-  const dias = Array.from({ length: 7 }, (_, i) => somaDias(ini, i));
-  return { dias, feitos: dias.filter(diaCompleto).length };
-}
+// a meta da Estufa: quantos dias completos seguidos valem uma planta
+const META_SEGUIDOS = 10;
 
 // dias seguidos até hoje (se hoje ainda não está completo, conta até ontem)
 function seguidos() {
@@ -371,11 +368,16 @@ function semana(d) {
     </button>`;
   }
   h += `</div><button class="seta" data-acao="semana" data-n="7" aria-label="Próxima semana">${icone('dir')}</button></div>`;
-  const meta = metaDaSemana(d), seq = seguidos(), rec = recorde(), perfeita = meta.feitos === 7;
+  const a = andamentoDaSequencia(), seq = seguidos(), rec = recorde(), M = META_SEGUIDOS;
+  const perfeita = a.fechouHoje, n = perfeita ? M : a.atual;
+  let rodape;
+  if (!diaCompleto(HOJE)) rodape = n ? `Complete hoje e chegue a ${n + 1}.` : seq ? 'Complete hoje e comece a próxima plantinha.' : 'Complete hoje e comece a sequência.';
+  else rodape = `${seq} ${seq === 1 ? 'dia seguido' : 'dias seguidos'} no total`;
+  if (rec > 1 && rec > seq) rodape += ` · recorde ${rec}`;
   return h + `<div class="semana-meta${perfeita ? ' perfeita' : ''}">
-    <div class="meta-barra" role="progressbar" aria-valuenow="${meta.feitos}" aria-valuemin="0" aria-valuemax="7"><i style="width:${(meta.feitos / 7 * 100).toFixed(1)}%"></i></div>
-    <p class="meta-texto">${perfeita ? '<strong>Semana perfeita!</strong> 7 de 7 dias' : `<strong>${meta.feitos} de 7</strong> dias completos na semana`}</p>
-    <p class="meta-seq">${seq ? `${seq} ${seq === 1 ? 'dia seguido' : 'dias seguidos'}` : 'Complete hoje e comece a sequência'}${rec > 1 && rec > seq ? ` · recorde ${rec}` : ''}</p>
+    <div class="meta-barra" role="progressbar" aria-valuenow="${n}" aria-valuemin="0" aria-valuemax="${M}"><i style="width:${(n / M * 100).toFixed(1)}%"></i></div>
+    <p class="meta-texto">${perfeita ? `<strong>${M} de ${M}!</strong> Plantinha nova na Estufa` : `<strong>${n} de ${M}</strong> dias seguidos para a próxima plantinha`}</p>
+    <p class="meta-seq">${rodape}</p>
   </div></div>`;
 }
 
@@ -686,7 +688,7 @@ function painelProgresso() {
     <div class="kpi heroi"><span class="kpi-rotulo">Constância</span><span class="kpi-valor">${e.constancia}%</span><span class="kpi-sub">dos turnos completos em ${nd} ${nd === 1 ? 'dia' : 'dias'}</span><div class="meta-barra"><i style="width:${e.constancia}%"></i></div></div>
     <div class="kpi"><span class="kpi-rotulo">Dias completos</span><span class="kpi-valor">${e.diasOk} <small>de ${nd}</small></span></div>
     <div class="kpi"><span class="kpi-rotulo">Dias seguidos</span><span class="kpi-valor">${seq}</span><span class="kpi-sub">recorde ${Math.max(rec, seq)}</span></div>
-    <div class="kpi"><span class="kpi-rotulo">Semanas perfeitas</span><span class="kpi-valor">${S.estufa.semanas.length}</span><span class="kpi-sub">${Math.min(S.estufa.semanas.length, CATALOGO.length)} plantas na Estufa</span></div>
+    <div class="kpi"><span class="kpi-rotulo">Plantinhas ganhas</span><span class="kpi-valor">${S.estufa.semanas.length}</span><span class="kpi-sub">${Math.min(S.estufa.semanas.length, CATALOGO.length)} plantas na Estufa</span></div>
     <div class="kpi"><span class="kpi-rotulo">Horário típico</span><span class="kpi-valor kpi-horas">${e.horaManha || '—'} <small>manhã</small><br>${e.horaNoite || '—'} <small>noite</small></span></div>
   </section>`;
   const conselhos = conselhosDoPainel(e);
@@ -877,12 +879,12 @@ function carinhoDeHoje() {
 }
 
 function falaDoVisinho() {
-  const meta = metaDaSemana(HOJE), seq = seguidos(), h = new Date().getHours();
+  const a = andamentoDaSequencia(), seq = seguidos(), h = new Date().getHours();
   const carinho = carinhoDeHoje();
   const reagiu = S.diario.some(r => r.dia === HOJE && r.sintomas.some(x => SINTOMAS_ALERTA.includes(x)));
   if (reagiu) return { estado: 'cuidado', texto: '<b>Vi no diário que a pele reagiu hoje.</b> Vá com calma: nada de produto novo e, se não passar, fale com a dermatologista.' };
-  if (meta.feitos === 7) return { estado: 'semana', texto: '<b>Semana perfeita!</b> A sua Estufa ganhou um presente.' };
-  if (diaCompleto(HOJE)) return { estado: 'feliz', texto: `<b>Dia completo!</b> ${meta.feitos} de 7 nesta semana. ${carinho}` };
+  if (a.fechouHoje) return { estado: 'semana', texto: `<b>${META_SEGUIDOS} dias seguidos!</b> A sua Estufa ganhou um presente.` };
+  if (diaCompleto(HOJE)) return { estado: 'feliz', texto: `<b>Dia completo!</b> ${a.atual} de ${META_SEGUIDOS} rumo à próxima plantinha. ${carinho}` };
   if (emViagem(HOJE)) return { estado: 'sol', texto: `<b>Modo ${esc(VIAGEM.lugar)}!</b> Chapéu, sombra e protetor reaplicado a cada 2 horas ao ar livre.` };
   if (h >= 19) return { estado: 'noite', texto: `<b>${recado('noite')}</b> ${carinho}` };
   if (climaDaEstufa(umidade()) === 'sede') return { estado: 'dica', texto: `<b>${recado('sede')}</b>` };
@@ -899,7 +901,7 @@ function falaHTML() {
   </div></div>`;
 }
 
-// ---------- a Estufa: um prêmio para cada semana perfeita, para sempre ----------
+// ---------- a Estufa: um prêmio a cada 10 dias seguidos, para sempre ----------
 // Fase 1: 28 plantas novas. Fase 2: cada planta cresce (muda → adulta → florida). Fase 3: versões raras, sem fim.
 const CATALOGO = [
   { tipo: 'muda', folha: 'alocasia-polly', nome: 'Alocasia Polly' },
@@ -941,9 +943,24 @@ const COR_VASO = { crema: ['#f3e4c8', '#e8d5b2'], terracotta: ['#c87a54', '#b86a
   dourado: ['#d9a520', '#c18e12'], cobalto: ['#2f5d9e', '#244d86'], rosa: ['#e8a1b3', '#d98aa0'] };
 const rarasDe = p => (p.tipo === 'muda' && !p.folha.startsWith('foglia-')) ? RARAS_MUDA : RARAS_PLANTA;
 
-function semanasPerfeitas() {
-  const segundas = new Set(Object.keys(S.completos).filter(diaCompleto).map(segundaDaSemana));
-  return [...segundas].filter(seg => metaDaSemana(seg).feitos === 7).sort();
+// Cada 10 dias completos seguidos (começando em qualquer dia) fecham um bloco, e cada bloco é uma planta.
+// Os dias de um bloco já ganho não contam de novo; pulou um dia, a contagem recomeça.
+// Os blocos ficam guardados como «seq:início..fim» (as semanas de segunda a domingo ganhas antes continuam valendo).
+function andamentoDaSequencia() {
+  const ganhos = S.estufa.semanas.filter(k => k.startsWith('seq:')).map(k => k.slice(4).split('..'));
+  const usado = d => ganhos.some(([a, b]) => d >= a && d <= b);
+  const blocos = [];
+  let n = 0, ini = null, antes = null;
+  for (const d of Object.keys(S.completos).filter(x => x <= HOJE && diaCompleto(x)).sort()) {
+    if (!antes || difDias(antes, d) !== 1) n = 0;
+    antes = d;
+    if (usado(d)) { n = 0; continue; }
+    if (n === 0) ini = d;
+    if (++n === META_SEGUIDOS) { blocos.push(`seq:${ini}..${d}`); n = 0; }
+  }
+  const vivo = antes === HOJE || antes === somaDias(HOJE, -1);
+  const fechouHoje = [...S.estufa.semanas, ...blocos].some(k => k.endsWith('..' + HOJE));
+  return { blocos, atual: vivo ? n : 0, fechouHoje };
 }
 
 function mesesPerfeitos() {
@@ -957,14 +974,14 @@ function mesesPerfeitos() {
 
 // o que já foi ganho fica ganho, mesmo se depois uma marcação for desfeita
 function verificarPremios() {
-  const semanas = semanasPerfeitas().filter(x => !S.estufa.semanas.includes(x));
+  const semanas = andamentoDaSequencia().blocos;
   const meses = mesesPerfeitos().filter(x => !S.estufa.meses.includes(x));
   S.estufa.semanas.push(...semanas);
   S.estufa.meses.push(...meses);
   return { semanas, meses };
 }
 
-// como está cada planta depois de N semanas perfeitas
+// como está cada planta depois de N plantinhas ganhas
 function estadoDaEstufa(N) {
   const T = CATALOGO.length;
   const plantas = CATALOGO.map((p, i) => ({ ...p, i, ganha: i < N, estagio: 0, rara: null }));
@@ -973,7 +990,7 @@ function estadoDaEstufa(N) {
   return plantas;
 }
 
-// o prêmio da n-ésima semana perfeita (1, 2, 3…)
+// o prêmio da n-ésima plantinha (1, 2, 3…)
 function premioNumero(n) {
   const T = CATALOGO.length, k = n - 1;
   if (k < T) return { tipo: 'nova', i: k };
@@ -1015,20 +1032,21 @@ function telaEstufa() {
   const textoFase = fase === 1 ? `Fase 1 · Coleção: ${N} de ${T} plantas` : fase === 2 ? `Fase 2 · Crescer: ${N - T} de ${2 * T}` : `Fase 3 · Raras: ${N - 3 * T} até agora`;
   const pct = fase === 1 ? N / T : fase === 2 ? (N - T) / (2 * T) : 1;
   const prox = premioNumero(N + 1), pp = CATALOGO[prox.i];
-  const proxTexto = prox.tipo === 'nova' ? `Na próxima semana perfeita chega: <b>${pp.nome}</b>.` : prox.tipo === 'crescer' ? `Na próxima semana perfeita, <b>${pp.nome}</b> ${prox.estagio === 1 ? 'cresce' : 'floresce'}.` : `Na próxima semana perfeita, <b>${pp.nome}</b> fica rara.`;
+  const faltam = META_SEGUIDOS - andamentoDaSequencia().atual, quando = `Com mais ${faltam} ${faltam === 1 ? 'dia seguido' : 'dias seguidos'}`;
+  const proxTexto = prox.tipo === 'nova' ? `${quando} chega: <b>${pp.nome}</b>.` : prox.tipo === 'crescer' ? `${quando}, <b>${pp.nome}</b> ${prox.estagio === 1 ? 'cresce' : 'floresce'}.` : `${quando}, <b>${pp.nome}</b> fica rara.`;
   const u = umidade(), clima = climaDaEstufa(u);
   const textoClima = clima === 'orvalho' ? 'Suas plantas estão viçosas, cheias de orvalho.' : clima === 'bom' ? 'Elas estão bem. Cada rotina completa é mais um vaporzinho.' : 'Elas estão com sede: cada rotina completa é uma borrifada.';
   let h = `<header class="topo"><p class="sobre">A sua coleção</p><h1>Estufa</h1></header>
-  <div class="fala">${Visino.desenha(N ? 'feliz' : 'dica')}<div class="balao"><p class="fala-msg"><b>${N === 0 ? 'A sua Estufa está esperando a primeira planta.' : `${N} ${N === 1 ? 'semana perfeita' : 'semanas perfeitas'}!`}</b> ${proxTexto}</p></div></div>
+  <div class="fala">${Visino.desenha(N ? 'feliz' : 'dica')}<div class="balao"><p class="fala-msg"><b>${N === 0 ? 'A sua Estufa está esperando a primeira planta.' : `${N} ${N === 1 ? 'plantinha ganha' : 'plantinhas ganhas'}!`}</b> ${proxTexto}</p></div></div>
   <section class="cartao estufa-fase"><strong>${textoFase}</strong><div class="meta-barra"><i style="width:${(pct * 100).toFixed(1)}%"></i></div>
-    <p>Uma semana perfeita = 7 de 7 dias com manhã e noite completas. Depois das 28 plantas, elas crescem; depois, ficam raras.</p></section>
+    <p>Uma plantinha a cada ${META_SEGUIDOS} dias seguidos com manhã e noite completas, começando em qualquer dia. Pulou um dia? A contagem recomeça. Depois das 28 plantas, elas crescem; depois, ficam raras.</p></section>
   <section class="cartao umidade clima-${clima}"><div class="umidade-topo"><strong>Umidade da Estufa</strong><span class="umidade-n">${u}%</span></div>
     <div class="meta-barra"><i style="width:${u}%"></i></div><p>${textoClima} <span>A umidade vem das suas rotinas dos últimos 7 dias.</span></p></section>
   <section class="prateleiras clima-${clima}">`;
   for (const p of plantas) {
     const proxima = !p.ganha && p.i === N;
     h += `<div class="slot${p.ganha ? '' : ' travado'}${proxima ? ' proxima' : ''}">${artePlanta(p, !p.ganha)}
-      <span class="slot-nome">${p.ganha ? esc(p.nome) : proxima ? 'A próxima!' : `Semana ${p.i + 1}`}</span>
+      <span class="slot-nome">${p.ganha ? esc(p.nome) : proxima ? 'A próxima!' : `Planta ${p.i + 1}`}</span>
       ${p.ganha ? `<span class="slot-tag${p.rara ? ' rara' : ''}">${p.rara ? 'Rara · ' + RARA_CURTO[p.rara] : ESTAGIOS[p.estagio]}</span>` : ''}</div>`;
   }
   h += `</section><section class="grupo"><h2>Prêmios do mês</h2><div class="prateleiras">`;
@@ -1038,7 +1056,7 @@ function telaEstufa() {
   return h + '</div></section>';
 }
 
-// ---------- a festa da semana (e do mês) perfeita ----------
+// ---------- a festa dos 10 dias seguidos (e do mês perfeito) ----------
 function festaHTML() {
   const { semanas, meses } = vista.festa, N = S.estufa.semanas.length;
   let premios = '';
@@ -1048,8 +1066,9 @@ function festaHTML() {
     premios += `<div class="premio">${artePlanta(p)}<b>${esc(p.nome)}</b><span>${legenda}</span></div>`;
   });
   meses.forEach(m => { premios += `<div class="premio"><span class="arte">${terrario()}</span><b>Terrário de ${MESES[Number(m.slice(5, 7)) - 1]}</b><span>Prêmio do mês perfeito</span></div>`; });
-  const titulo = semanas.length ? 'Semana perfeita!' : 'Mês perfeito!';
-  const texto = semanas.length ? '7 de 7 dias, manhã e noite. Sua pele agradece, e eu também!' : 'Todos os dias do mês completos. Que orgulho!';
+  const titulo = semanas.length > 1 ? `${semanas.length} plantinhas de uma vez!` : semanas.length ? `${META_SEGUIDOS} dias seguidos!` : 'Mês perfeito!';
+  const texto = semanas.length > 1 ? `Contei as suas sequências de ${META_SEGUIDOS} dias seguidos que já estavam feitas. Que orgulho!`
+    : semanas.length ? `${META_SEGUIDOS} dias seguidos, manhã e noite. Sua pele agradece, e eu também!` : 'Todos os dias do mês completos. Que orgulho!';
   const cores = ['#4f9a5e', '#b61e42', '#fec340', '#b58aa9', '#0a5b58'];
   const confete = ['ginkgo', 'pilea', 'bordo', 'figueira', 'oliveira', 'caladium', 'anturio', 'samambaia']
     .map((f, i) => `<svg class="confete c${i}" data-folha="${f}" data-colore="${cores[i % cores.length]}" data-tratto="1.6"></svg>`).join('');
@@ -1225,12 +1244,12 @@ function tabelasDeUso() {
   for (let d = ini; d <= HOJE; d = somaDias(d, 1)) dias.push(d);
   const diarioDe = d => S.diario.filter(r => r.dia === d);
 
-  const tDias = [['data', 'dia_da_semana', 'fase', 'manha_feitos', 'manha_total', 'manha_completa', 'noite_feitos', 'noite_total', 'noite_completa', 'dia_completo', 'semana_perfeita', 'em_viagem', 'sintomas', 'reacao']];
+  const tDias = [['data', 'dia_da_semana', 'fase', 'manha_feitos', 'manha_total', 'manha_completa', 'noite_feitos', 'noite_total', 'noite_completa', 'dia_completo', 'ganhou_plantinha', 'em_viagem', 'sintomas', 'reacao']];
   for (const d of dias) {
     const m = progresso(d, 'manha'), n = progresso(d, 'noite'), c = S.completos[d] || {}, f = faseDe(d);
     const sint = [...new Set(diarioDe(d).flatMap(r => r.sintomas))];
     tDias.push([d, DIAS_SEMANA[deISO(d).getDay()], f ? f.titulo : '', m.feitos, m.total, simNao(c.manha), n.feitos, n.total, simNao(c.noite), simNao(diaCompleto(d)),
-      simNao(S.estufa.semanas.includes(segundaDaSemana(d))), simNao(emViagem(d)), sint.join('; '), simNao(sint.some(x => SINTOMAS_ALERTA.includes(x)))]);
+      simNao(S.estufa.semanas.some(k => k.endsWith('..' + d))), simNao(emViagem(d)), sint.join('; '), simNao(sint.some(x => SINTOMAS_ALERTA.includes(x)))]);
   }
   const tPassos = [['data', 'turno', 'ordem', 'produto', 'produto_id', 'feito', 'se_precisar']];
   for (const d of dias) for (const t of ['manha', 'noite']) {
@@ -1351,15 +1370,15 @@ const ACOES = {
     if (progresso(d, t).completo && !turnoAntes) registrar('turno_completo', { d, turno: t });
     if (diaCompleto(d) && !antes) registrar('dia_completo', { d });
     const novos = verificarPremios();
-    novos.semanas.forEach(seg => registrar('semana_perfeita', { d, detalhe: `semana de ${seg}` }));
+    novos.semanas.forEach(k => registrar('sequencia_completa', { d, detalhe: `${META_SEGUIDOS} dias seguidos: ${k.slice(4).replace('..', ' a ')}` }));
     novos.meses.forEach(m => registrar('mes_perfeito', { d, detalhe: m }));
     if (novos.semanas.length || novos.meses.length) vista.festa = novos;
     salvar(); render();
     if (vista.festa) return;
     if (progresso(d, t).completo && !turnoAntes) borrifar();
     if (diaCompleto(d) && !antes) {
-      const m = metaDaSemana(d);
-      toast(m.feitos === 7 ? 'Semana perfeita! 7 de 7 ✓' : `Dia completo! ${m.feitos} de 7 na semana ✓`);
+      const a = andamentoDaSequencia();
+      toast(`Dia completo! ${a.atual} de ${META_SEGUIDOS} dias seguidos ✓`);
     } else if (progresso(d, t).completo && S.feitos[d][t][id]) toast(t === 'manha' ? 'Manhã completa ✓ Vaporzinho na Estufa' : 'Noite completa ✓ Vaporzinho na Estufa');
   },
   verIngrediente: el => {
@@ -1567,7 +1586,11 @@ document.addEventListener('visibilitychange', () => {
 aplicarRotina();
 congelarPassado();
 for (const d of Object.keys(S.feitos)) if (!S.completos[d] && d <= HOJE) registrarDia(d);
-verificarPremios();
+// prêmios que já estavam feitos (por exemplo, quando a regra muda): chegam com festa ao abrir
+const novosAoAbrir = verificarPremios();
+novosAoAbrir.semanas.forEach(k => registrar('sequencia_completa', { detalhe: `${META_SEGUIDOS} dias seguidos: ${k.slice(4).replace('..', ' a ')}` }));
+novosAoAbrir.meses.forEach(m => registrar('mes_perfeito', { detalhe: m }));
+if (novosAoAbrir.semanas.length || novosAoAbrir.meses.length) vista.festa = novosAoAbrir;
 registrar('abriu', { detalhe: new URLSearchParams(location.search).has('hoje') ? 'teste' : (navigator.standalone || matchMedia('(display-mode: standalone)').matches ? 'pelo ícone' : 'no navegador') });
 salvar();
 render();

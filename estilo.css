@@ -286,6 +286,39 @@ textarea { resize: vertical; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .tags span { font-size: 13px; font-weight: 500; padding: 3px 12px; border-radius: 999px; background: var(--malva-clara); color: var(--malva-escura); }
 
+/* o diário novo: a escala de carinhas, os grupos de sinais, a faixa dos 14 dias */
+:root { --n5: #4f9a5e; --n4: #9cc97f; --n3: #fec340; --n2: #ef9a5b; --n1: #b61e42; }
+.pergunta { font: 600 24px/1.2 var(--f-titulo); margin: 24px 0 12px; }
+.escala { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.escala button { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 100px; padding: 10px 2px; border-radius: 18px; background: var(--bg); box-shadow: inset 0 0 0 1.5px var(--linha-forte); }
+.escala svg { width: 52px; height: 52px; }
+.escala span { font-size: 12.5px; font-weight: 600; line-height: 1.2; text-align: center; }
+.escala button[aria-pressed="true"] { background: var(--destaque-claro); box-shadow: inset 0 0 0 2.5px var(--tinta); }
+.subrotulo { font-size: 13.5px; font-weight: 600; color: var(--tinta); margin: 4px 0 8px; }
+.subrotulo:not(:first-of-type) { margin-top: 14px; }
+.subrotulo.alerta { color: var(--alerta); }
+.chip.area.on { background: var(--tinta); }
+.chip.fator.on { background: var(--malva-escura); }
+.resposta-diario { margin-bottom: 20px; }
+.reg-cabeca { display: flex; align-items: center; gap: 12px; }
+.reg-rosto { width: 44px; height: 44px; flex: none; }
+.reg-titulo { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.reg-titulo b { font: 600 18px/1.2 var(--f-titulo); }
+.reg-hora { font-size: 13px; color: var(--cinza); }
+.tags span.alerta { background: var(--alerta); color: #fff; }
+.tags span.bom { background: var(--verde-claro); color: var(--verde); }
+.tags.fatores span { background: transparent; color: var(--cinza); box-shadow: inset 0 0 0 1.2px var(--linha-forte); }
+.faixa-pele { margin-bottom: 24px; }
+.faixa { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 2px; margin-top: 12px; }
+.dia-pele { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.dia-pele i, .legenda-pele i { display: block; width: 18px; height: 18px; border-radius: 50%; }
+.dia-pele small { font-size: 11px; color: var(--cinza); font-variant-numeric: tabular-nums; }
+.n0 { box-shadow: inset 0 0 0 1.5px var(--linha-forte); }
+.n1 { background: var(--n1); } .n2 { background: var(--n2); } .n3 { background: var(--n3); } .n4 { background: var(--n4); } .n5 { background: var(--n5); }
+.legenda-pele { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 12px; font-size: 12.5px; color: var(--cinza); }
+.legenda-pele span { display: inline-flex; align-items: center; gap: 5px; }
+.legenda-pele i { width: 11px; height: 11px; }
+
 /* ---------- guida ---------- */
 .dica { padding: 20px 0; border-top: 1px solid var(--linha); }
 .dica:first-child { border-top: 0; padding-top: 0; }

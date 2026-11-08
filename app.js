@@ -247,7 +247,7 @@ function acoesDeHoje() {
 }
 
 // ---------- tela ----------
-const vista = { aba: 'hoje', dia: HOJE, mes: HOJE.slice(0, 7), abertos: {}, form: { sintomas: [], produto: '', nota: '' }, resultado: null, desde: null, dica: 0, festa: null, periodo: '30' };
+const vista = { aba: 'hoje', dia: HOJE, mes: HOJE.slice(0, 7), abertos: {}, form: { nivel: null, sintomas: [], areas: [], fatores: [], produto: '', nota: '' }, resultado: null, desde: null, dica: 0, festa: null, periodo: '30' };
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -611,7 +611,7 @@ function estatisticas() {
   const notas = S.diario.filter(r => r.dia >= (periodo[0] || HOJE) && r.dia <= HOJE);
   const sinais = {};
   for (const r of notas) for (const x of r.sintomas) sinais[x] = (sinais[x] || 0) + 1;
-  const problemas = Object.entries(sinais).filter(([x]) => x !== 'Pele bem').map(([nome, vezes]) => ({ nome, vezes, alerta: SINTOMAS_ALERTA.includes(nome) })).sort((a, b) => b.vezes - a.vezes).slice(0, 6);
+  const problemas = Object.entries(sinais).filter(([x]) => !SINAIS_BONS.includes(x)).map(([nome, vezes]) => ({ nome, vezes, alerta: SINTOMAS_ALERTA.includes(nome) })).sort((a, b) => b.vezes - a.vezes).slice(0, 6);
   const reacoes = notas.filter(r => r.sintomas.some(x => SINTOMAS_ALERTA.includes(x)));
   const suspeitos = {};
   for (const r of reacoes) if (r.produto) suspeitos[r.produto] = (suspeitos[r.produto] || 0) + 1;
@@ -642,9 +642,22 @@ function conselhosDoPainel(e) {
     const pior = comDias.reduce((a, b) => (b.valor < a.valor ? b : a));
     if (pior.valor < 80) c.push(`<b>${DIAS_SEMANA[pior.dow][0].toUpperCase() + DIAS_SEMANA[pior.dow].slice(1)} é o dia mais difícil</b> (${pior.valor}% dos turnos). Um lembrete nesse dia pode ajudar.`);
   }
-  if (e.reacoes.length) c.push(`<b>${e.reacoes.length} ${e.reacoes.length === 1 ? 'sinal de reação anotado' : 'sinais de reação anotados'}</b>${e.suspeito ? `, mais ligados a ${esc(nomeProduto(e.suspeito[0]))}` : ''}. Se continuar, vale conversar com a dermatologista.`);
-  const seca = e.problemas.find(x => x.nome === 'Pele seca' || x.nome === 'Repuxando');
+  if (e.reacoes.length) c.push(`<b>${e.reacoes.length} ${e.reacoes.length === 1 ? 'sinal de reação anotado' : 'sinais de reação anotados'}</b>${e.suspeito ? `, ${e.reacoes.length === 1 ? 'ligado' : 'mais ligados'} a ${esc(nomeProduto(e.suspeito[0]))}` : ''}. Se continuar, vale conversar com a dermatologista.`);
+  const seca = e.problemas.find(x => x.nome === 'Seca' || x.nome === 'Repuxando');
   if (seca && seca.vezes >= 2) c.push(`<b>Pele seca ou repuxando apareceu ${seca.vezes} vezes.</b> Água morna em vez de quente e o hidratante logo depois do banho costumam ajudar.`);
+  // o que do dia a dia aparece junto com os dias de pele pior
+  const comNivel = e.periodo.map(d => ({ n: nivelDoDia(d), f: new Set(S.diario.filter(r => r.dia === d).flatMap(r => r.fatores)) })).filter(x => x.n);
+  if (comNivel.length >= 5) {
+    const media = l => l.reduce((a, x) => a + x.n, 0) / l.length;
+    let pior = null;
+    for (const f of FATORES) {
+      const com = comNivel.filter(x => x.f.has(f)), sem = comNivel.filter(x => !x.f.has(f));
+      if (com.length < 2 || sem.length < 2) continue;
+      const dif = media(sem) - media(com);
+      if (dif >= .8 && (!pior || dif > pior.dif)) pior = { f, dif, vezes: com.length };
+    }
+    if (pior) c.push(`<b>Nos dias com «${esc(pior.f)}», a pele esteve pior</b> (${pior.vezes} dias). Vale prestar atenção nisso.`);
+  }
   if (e.constancia >= 85) c.push(`<b>${e.constancia}% de constância: está ótimo!</b> É esse ritmo que faz a pele mudar.`);
   return c;
 }
@@ -676,6 +689,16 @@ function graficoBarras(itens) {
 }
 
 const tabelaSimples = (cab, linhas) => `<details class="ver-tabela"><summary>Ver os números</summary><table><thead><tr>${cab.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${linhas.map(l => `<tr>${l.map(v => `<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></details>`;
+
+// como a pele esteve no período: quantos dias em cada nível (o pior momento de cada dia)
+function painelDaPele(e) {
+  const cont = [5, 4, 3, 2, 1].map(n => ({ n, dias: e.periodo.filter(d => nivelDoDia(d) === n).length }));
+  const total = cont.reduce((a, x) => a + x.dias, 0), maior = Math.max(1, ...cont.map(x => x.dias));
+  return `<section class="cartao painel"><h3>Como a pele esteve</h3><p class="painel-sub">Pelo diário: ${total} ${total === 1 ? 'dia anotado' : 'dias anotados'}. Em vermelho, os dias ruins.</p>
+    ${total ? graficoBarras(cont.map(x => ({ nome: NIVEIS_PELE[x.n][0], valor: pct(x.dias, maior), texto: `${x.dias} ${x.dias === 1 ? 'dia' : 'dias'}`, destaque: x.n <= 2 && x.dias > 0, dica: `${NIVEIS_PELE[x.n][0]}: ${x.dias} ${x.dias === 1 ? 'dia' : 'dias'}` })))
+      + tabelaSimples(['Como estava', 'Dias'], cont.map(x => [NIVEIS_PELE[x.n][0], String(x.dias)]))
+      : '<p class="vazio-painel">Anote no diário como está a pele e aqui aparece o retrato do período.</p>'}</section>`;
+}
 
 function painelProgresso() {
   const e = estatisticas(), per = vista.periodo || '30';
@@ -726,6 +749,7 @@ function painelProgresso() {
     ${e.problemas.length ? graficoBarras(e.problemas.map((x, i) => ({ nome: x.nome, marca: x.alerta ? 'reação' : '', valor: pct(x.vezes, e.problemas[0].vezes), texto: `${x.vezes}×`, destaque: i === 0, dica: `${x.nome}: ${x.vezes} ${x.vezes === 1 ? 'vez' : 'vezes'}` })))
       : `<p class="vazio-painel">${e.notas.length ? 'Só «pele bem» no diário. Ótimo sinal!' : 'Nenhuma anotação no diário neste período.'}</p>`}
     ${e.problemas.length ? tabelaSimples(['Sinal', 'Vezes'], e.problemas.map(x => [x.nome + (x.alerta ? ' (reação)' : ''), String(x.vezes)])) : ''}</section>
+  ${painelDaPele(e)}
   </div>
   <section class="cartao planilha"><strong>Quer os dados numa planilha?</strong>
     <p>As mesmas informações, dia por dia e passo por passo, em 5 planilhas para o Google Planilhas ou o Excel.</p>
@@ -772,26 +796,92 @@ function telaCalendario() {
 }
 
 // ---------- Diário ----------
+// Cada anotação: como a pele está (1 a 5), o que você notou, onde, o que aconteceu no dia, produto suspeito e anotação.
+// Os sinais de reação vêm do plano (SINTOMAS_ALERTA); o resto é geral e mora aqui.
+const NIVEIS_PELE = { 5: ['Ótima', 'feliz'], 4: ['Bem', 'acordada'], 3: ['Mais ou menos', 'neutro'], 2: ['Não muito bem', 'cuidado'], 1: ['Mal', 'triste'] };
+const SINAIS = [
+  ['Hidratação', ['Seca', 'Repuxando', 'Oleosa', 'Bem hidratada']],
+  ['Aparência', ['Luminosa', 'Sem brilho', 'Espinhas', 'Cravos', 'Manchas mais escuras', 'Manchas mais claras', 'Olheiras', 'Olhos inchados', 'Textura áspera']]
+];
+const SINAIS_BONS = ['Bem hidratada', 'Luminosa', 'Manchas mais claras'];
+const AREAS = ['Testa', 'Nariz', 'Bochechas', 'Queixo', 'Em volta dos olhos', 'Pescoço', 'Axilas', 'Virilha'];
+const FATORES = ['Dormi mal', 'Estresse', 'Muito sol', 'Calor e suor', 'Ar-condicionado', 'Viagem ou avião', 'Bebi pouca água', 'Ciclo (TPM)', 'Maquiagem', 'Exercício', 'Depilação', 'Produto novo'];
+const formVazio = () => ({ nivel: null, sintomas: [], areas: [], fatores: [], produto: '', nota: '' });
+
+// as anotações de antes do diário novo: «Pele bem» vira «Bem» na escala, e os nomes antigos ganham os novos
+function atualizarDiario() {
+  const NOVOS = { 'Pele seca': 'Seca', 'Oleosa demais': 'Oleosa' };
+  for (const r of S.diario) {
+    if (!('nivel' in r)) {
+      r.nivel = r.sintomas.includes('Pele bem') ? 4 : null;
+      r.sintomas = r.sintomas.filter(x => x !== 'Pele bem').map(x => NOVOS[x] || x);
+    }
+    r.areas = r.areas || []; r.fatores = r.fatores || [];
+  }
+}
+
+// o pior nível anotado em cada dia (se de manhã estava bem e à noite reagiu, o dia conta como reagiu)
+function nivelDoDia(d) {
+  const ns = S.diario.filter(r => r.dia === d && r.nivel).map(r => r.nivel);
+  return ns.length ? Math.min(...ns) : null;
+}
+
+// o que o Visinho responde depois de salvar
+function respostaDoDiario(r) {
+  const tem = x => r.sintomas.includes(x) || r.fatores.includes(x);
+  const dicas = [
+    [['Seca', 'Repuxando'], 'Pele seca pede hidratante com a pele ainda úmida, logo depois do banho, e água morna em vez de quente.'],
+    [['Oleosa'], 'Pele oleosa também precisa de hidratação: prefira texturas leves e não lave o rosto mais vezes do que o normal.'],
+    [['Espinhas', 'Cravos'], 'Nada de apertar: em pele morena, espinha apertada vira mancha. Mãos longe do rosto e fronha limpa ajudam.'],
+    [['Manchas mais escuras'], 'Manchas escurecem com sol, calor e irritação. Protetor reaplicado e paciência: os ativos levam semanas.'],
+    [['Olheiras', 'Olhos inchados'], 'Uma compressa fria de manhã desincha, e dormir bem é o melhor creme para os olhos.'],
+    [['Sem brilho', 'Textura áspera'], 'Pele opaca costuma ser pele com sede ou cansada: hidratante, água e uma noite bem dormida.'],
+    [['Dormi mal'], 'Noite mal dormida aparece na pele. Hoje, capriche no hidratante e tente deitar mais cedo.'],
+    [['Estresse'], 'Estresse também mexe com a pele. Três respirações fundas antes da rotina já ajudam.'],
+    [['Muito sol', 'Calor e suor'], 'Depois de um dia de sol ou calor: lave o rosto com água fresca, hidrate e nada de ativos fortes hoje.'],
+    [['Depilação'], 'Depois de depilar, espere a pele acalmar antes de usar ativos na região.']
+  ];
+  const dica = dicas.find(([xs]) => xs.some(tem));
+  const n = r.nivel;
+  const titulo = n === 5 ? 'Que pele linda hoje!' : n === 4 ? 'Que bom!' : n === 3 ? 'Anotado.' : n ? 'Sinto muito, vamos cuidar dela.' : 'Anotado no diário.';
+  const texto = dica ? dica[1] : n >= 4 ? 'Continue assim: é a constância que deixa a pele desse jeito.' : 'Observe com calma nos próximos dias. Se não melhorar, vale falar com a dermatologista.';
+  return `<div class="fala resposta-diario">${Visino.desenha(n ? NIVEIS_PELE[n][1] : 'dica')}<div class="balao"><p class="fala-msg"><b>${titulo}</b> ${texto}</p></div></div>`;
+}
+
+// a faixa dos últimos 14 dias: uma bolinha por dia, na cor de como a pele esteve
+function faixaDaPele() {
+  const dias = Array.from({ length: 14 }, (_, i) => somaDias(HOJE, i - 13));
+  if (!dias.some(nivelDoDia)) return '';
+  return `<section class="cartao faixa-pele"><strong>Sua pele nos últimos 14 dias</strong>
+    <div class="faixa">${dias.map(d => { const n = nivelDoDia(d);
+      return `<span class="dia-pele" data-dica="${esc(fmtLongo(d))}: ${n ? NIVEIS_PELE[n][0] : 'sem anotação'}" tabindex="0"><i class="n${n || 0}"></i><small>${deISO(d).getDate()}</small></span>`; }).join('')}</div>
+    <p class="legenda-pele">${[5, 4, 3, 2, 1].map(n => `<span><i class="n${n}"></i>${NIVEIS_PELE[n][0]}</span>`).join('')}</p></section>`;
+}
+
 function telaDiario() {
   const fm = vista.form;
   const candidatos = PRODUTOS.filter(p => ['introduzindo', 'teste', 'em_uso'].includes(E(p.id).estado) && !p.gesto);
-  const dia = fm.dia || HOJE;
+  const dia = fm.dia || HOJE, hoje = dia === HOJE;
   const rotuloDia = d => d === HOJE ? 'Hoje' : d === somaDias(HOJE, -1) ? 'Ontem' : '';
-  let h = `<header class="topo"><p class="sobre">Diário da pele</p><h1>Como está a pele?</h1></header>
+  const chips = (grupo, lista, classe = '') => `<div class="chips">${lista.map(s => chip(s, fm[grupo].includes(s), grupo, classe)).join('')}</div>`;
+  let h = `<header class="topo"><p class="sobre">Diário</p><h1>Sua pele, dia a dia</h1></header>
   <div class="diario-grade"><div class="diario-col">${vista.resultado || ''}
   <section class="cartao form-diario">
     <label class="rotulo" for="dia-diario">Dia da anotação</label>
     <div class="campo-dia"><input id="dia-diario" type="date" data-campo="dia" value="${dia}" max="${HOJE}"><span>${rotuloDia(dia) ? rotuloDia(dia) + ' · ' : ''}${fmtLongo(dia)}</span></div>
-    <p class="rotulo">${dia === HOJE ? 'Hoje a pele está' : 'Nesse dia a pele estava'}</p>
-    <div class="chips">${SINTOMAS_LEVES.map(s => chip(s, fm.sintomas.includes(s), false)).join('')}</div>
-    <p class="rotulo">Algum sinal de reação?</p>
-    <div class="chips">${SINTOMAS_ALERTA.map(s => chip(s, fm.sintomas.includes(s), true)).join('')}</div>
+    <h2 class="pergunta">${hoje ? 'Como está a sua pele hoje?' : 'Como estava a sua pele nesse dia?'}</h2>
+    <div class="escala" role="group" aria-label="Como está a pele">${[5, 4, 3, 2, 1].map(n => `<button type="button" data-acao="nivel" data-n="${n}" aria-pressed="${fm.nivel === n}">${Visino.desenha(NIVEIS_PELE[n][1])}<span>${NIVEIS_PELE[n][0]}</span></button>`).join('')}</div>
+    <p class="rotulo">O que você notou?</p>
+    ${SINAIS.map(([t, l]) => `<p class="subrotulo">${t}</p>${chips('sintomas', l)}`).join('')}
+    <p class="subrotulo alerta">Sinais de reação</p>${chips('sintomas', SINTOMAS_ALERTA, 'alerta')}
+    ${fm.sintomas.some(s => !SINAIS_BONS.includes(s)) ? `<p class="rotulo">Onde?</p>${chips('areas', AREAS, 'area')}` : ''}
+    <p class="rotulo">${hoje ? 'O que aconteceu hoje?' : 'O que aconteceu nesse dia?'}</p>${chips('fatores', FATORES, 'fator')}
     <label class="rotulo" for="produto">Desconfia de algum produto?</label>
     <select id="produto" data-campo="produto"><option value="">Nenhum / não sei</option>${candidatos.map(p => `<option value="${p.id}"${fm.produto === p.id ? ' selected' : ''}>${esc(p.curto)}${E(p.id).estado !== 'em_uso' ? ' (novo)' : ''}</option>`).join('')}</select>
     <label class="rotulo" for="nota">Anotação</label>
     <textarea id="nota" data-campo="nota" rows="3" placeholder="Ex.: olheiras mais claras, pele seca no queixo…">${esc(fm.nota)}</textarea>
     <button class="botao largo" data-acao="salvarDiario">Salvar no diário</button>
-  </section></div><div class="diario-col">`;
+  </section></div><div class="diario-col">${faixaDaPele()}`;
   // as anotações agrupadas por dia, do mais recente para o mais antigo; dentro do dia, pela hora
   const porDia = {};
   for (const r of S.diario) (porDia[r.dia] = porDia[r.dia] || []).push(r);
@@ -801,11 +891,16 @@ function telaDiario() {
     for (const d of dias) {
       h += `<h3 class="dia-diario"><span class="dia-nome">${fmtLongo(d)}</span>${rotuloDia(d) ? `<span class="dia-rotulo">${rotuloDia(d)}</span>` : ''}</h3>`;
       for (const r of porDia[d].sort((a, b) => b.criado - a.criado)) {
-      const alerta = r.sintomas.some(s => SINTOMAS_ALERTA.includes(s));
-      h += `<article class="registro${alerta ? ' alerta' : ''}"><div class="reg-topo"><span class="reg-hora">Anotado às ${fmtHora(r.criado)}${iso(new Date(r.criado)) !== r.dia ? ` de ${fmtCurto(iso(new Date(r.criado)))}` : ''}</span><button class="link perigo" data-acao="apagarRegistro" data-id="${r.criado}">Apagar</button></div>
-        ${r.sintomas.length ? `<p class="tags">${r.sintomas.map(s => `<span>${esc(s)}</span>`).join('')}</p>` : ''}
-        ${r.produto ? `<p class="extra">Produto: ${esc(P(r.produto) ? P(r.produto).curto : r.produto)}</p>` : ''}
-        ${r.nota ? `<p>${esc(r.nota)}</p>` : ''}</article>`;
+        const alerta = r.sintomas.some(s => SINTOMAS_ALERTA.includes(s));
+        h += `<article class="registro${alerta ? ' alerta' : ''}">
+          <div class="reg-cabeca">${r.nivel ? Visino.desenha(NIVEIS_PELE[r.nivel][1], 'reg-rosto') : ''}
+            <div class="reg-titulo"><b>${r.nivel ? NIVEIS_PELE[r.nivel][0] : 'Anotação'}</b><span class="reg-hora">às ${fmtHora(r.criado)}${iso(new Date(r.criado)) !== r.dia ? ` de ${fmtCurto(iso(new Date(r.criado)))}` : ''}</span></div>
+            <button class="link perigo" data-acao="apagarRegistro" data-id="${r.criado}">Apagar</button></div>
+          ${r.sintomas.length ? `<p class="tags">${r.sintomas.map(s => `<span class="${SINTOMAS_ALERTA.includes(s) ? 'alerta' : SINAIS_BONS.includes(s) ? 'bom' : ''}">${esc(s)}</span>`).join('')}</p>` : ''}
+          ${r.areas.length ? `<p class="extra">Onde: ${esc(r.areas.join(', '))}</p>` : ''}
+          ${r.fatores.length ? `<p class="tags fatores">${r.fatores.map(s => `<span>${esc(s)}</span>`).join('')}</p>` : ''}
+          ${r.produto ? `<p class="extra">Produto: ${esc(P(r.produto) ? P(r.produto).curto : r.produto)}</p>` : ''}
+          ${r.nota ? `<p>${esc(r.nota)}</p>` : ''}</article>`;
       }
     }
     h += '</section>';
@@ -813,7 +908,7 @@ function telaDiario() {
   return h + '</div></div>';
 }
 
-const chip = (s, on, alerta) => `<button class="chip${on ? ' on' : ''}${alerta ? ' alerta' : ''}" data-acao="sintoma" data-s="${esc(s)}" aria-pressed="${on}">${esc(s)}</button>`;
+const chip = (s, on, grupo, classe = '') => `<button class="chip${on ? ' on' : ''}${classe ? ' ' + classe : ''}" data-acao="marcarChip" data-grupo="${grupo}" data-s="${esc(s)}" aria-pressed="${on}">${esc(s)}</button>`;
 
 // ---------- o Visinho fala ----------
 const numeroDoDia = d => difDias('2026-01-01', d);
@@ -1257,12 +1352,12 @@ function tabelasDeUso() {
   for (let d = ini; d <= HOJE; d = somaDias(d, 1)) dias.push(d);
   const diarioDe = d => S.diario.filter(r => r.dia === d);
 
-  const tDias = [['data', 'dia_da_semana', 'fase', 'manha_feitos', 'manha_total', 'manha_completa', 'noite_feitos', 'noite_total', 'noite_completa', 'dia_completo', 'ganhou_plantinha', 'em_viagem', 'sintomas', 'reacao']];
+  const tDias = [['data', 'dia_da_semana', 'fase', 'manha_feitos', 'manha_total', 'manha_completa', 'noite_feitos', 'noite_total', 'noite_completa', 'dia_completo', 'ganhou_plantinha', 'em_viagem', 'pele_1a5', 'sintomas', 'reacao']];
   for (const d of dias) {
     const m = progresso(d, 'manha'), n = progresso(d, 'noite'), c = S.completos[d] || {}, f = faseDe(d);
     const sint = [...new Set(diarioDe(d).flatMap(r => r.sintomas))];
     tDias.push([d, DIAS_SEMANA[deISO(d).getDay()], f ? f.titulo : '', m.feitos, m.total, simNao(c.manha), n.feitos, n.total, simNao(c.noite), simNao(diaCompleto(d)),
-      simNao(S.estufa.semanas.some(k => k.endsWith('..' + d))), simNao(emViagem(d)), sint.join('; '), simNao(sint.some(x => SINTOMAS_ALERTA.includes(x)))]);
+      simNao(S.estufa.semanas.some(k => k.endsWith('..' + d))), simNao(emViagem(d)), nivelDoDia(d) || '', sint.join('; '), simNao(sint.some(x => SINTOMAS_ALERTA.includes(x)))]);
   }
   const tPassos = [['data', 'turno', 'ordem', 'produto', 'produto_id', 'feito', 'se_precisar']];
   for (const d of dias) for (const t of ['manha', 'noite']) {
@@ -1275,9 +1370,10 @@ function tabelasDeUso() {
     tEventos.push([e.d, fmtHora(e.t), DIAS_SEMANA[deISO(e.d).getDay()], e.tipo, e.turno ? (e.turno === 'manha' ? 'manhã' : 'noite') : '', nomeProduto(e.produto), e.produto || '', e.detalhe || '']);
     void hora;
   }
-  const tDiario = [['data', 'anotado_em', 'sintomas', 'reacao', 'produto_suspeito', 'anotacao']];
+  const tDiario = [['data', 'anotado_em', 'como_estava', 'pele_1a5', 'sinais', 'onde', 'o_que_aconteceu', 'reacao', 'produto_suspeito', 'anotacao']];
   for (const r of [...S.diario].sort((a, b) => a.dia.localeCompare(b.dia) || a.criado - b.criado))
-    tDiario.push([r.dia, `${iso(new Date(r.criado))} ${fmtHora(r.criado)}`, r.sintomas.join('; '), simNao(r.sintomas.some(x => SINTOMAS_ALERTA.includes(x))), nomeProduto(r.produto), r.nota]);
+    tDiario.push([r.dia, `${iso(new Date(r.criado))} ${fmtHora(r.criado)}`, r.nivel ? NIVEIS_PELE[r.nivel][0] : '', r.nivel || '', r.sintomas.join('; '), (r.areas || []).join('; '), (r.fatores || []).join('; '),
+      simNao(r.sintomas.some(x => SINTOMAS_ALERTA.includes(x))), nomeProduto(r.produto), r.nota]);
   const tProdutos = [['produto', 'produto_id', 'area', 'estado', 'na_rotina', 'frequencia', 'comecou_em', 'acabou_em', 'pausado_em', 'para_comprar', 'acrescentado_por_mim']];
   for (const p of PRODUTOS) { const e = E(p.id); tProdutos.push([p.curto, p.id, p.area || '', ROTULOS[e.estado] || e.estado, simNao(!removido(p.id)), resumoFrequencia(p), e.inicio || '', e.acabouEm || '', e.pausadoEm || '', simNao(e.repor), simNao(String(p.id).startsWith('meu-'))]); }
   return { dias: tDias, passos: tPassos, eventos: tEventos, diario: tDiario, produtos: tProdutos };
@@ -1481,21 +1577,23 @@ const ACOES = {
   comprei: el => { E(el.dataset.id).repor = false; registrar('produto_comprado', { produto: el.dataset.id }); salvar(); render(); },
   turno: el => { const e = E(el.dataset.id); e.turno = e.turno === 'noite' ? 'manha' : 'noite'; salvar(); render(); },
   spf: () => { (S.spf[HOJE] = S.spf[HOJE] || []).push(Date.now()); registrar('protetor_reaplicado', { produto: 'spf' }); salvar(); render(); toast('Anotado. Próxima em 2 horas.'); },
-  sintoma: el => {
-    const s = el.dataset.s, l = vista.form.sintomas;
-    if (s === 'Pele bem') vista.form.sintomas = l.includes(s) ? [] : [s];
-    else vista.form.sintomas = l.includes(s) ? l.filter(x => x !== s) : [...l.filter(x => x !== 'Pele bem'), s];
+  nivel: el => { const n = Number(el.dataset.n); vista.form.nivel = vista.form.nivel === n ? null : n; render(); },
+  marcarChip: el => {
+    const g = el.dataset.grupo, s = el.dataset.s, l = vista.form[g];
+    vista.form[g] = l.includes(s) ? l.filter(x => x !== s) : [...l, s];
+    if (g === 'sintomas' && !vista.form.sintomas.some(x => !SINAIS_BONS.includes(x))) vista.form.areas = [];
     render();
   },
   salvarDiario: () => {
     const fm = vista.form;
-    if (!fm.sintomas.length && !fm.nota.trim()) { toast('Escolha um sinal ou escreva algo.'); return; }
+    if (!fm.nivel && !fm.sintomas.length && !fm.fatores.length && !fm.nota.trim()) { toast('Toque em como está a pele ou anote algo.'); return; }
     const dia = fm.dia && fm.dia <= HOJE ? fm.dia : HOJE;
-    S.diario.push({ criado: Date.now(), dia, sintomas: fm.sintomas, produto: fm.produto, nota: fm.nota.trim() });
-    const alerta = fm.sintomas.some(s => SINTOMAS_ALERTA.includes(s));
-    registrar('diario', { d: dia, produto: fm.produto || undefined, detalhe: fm.sintomas.join('; ') + (alerta ? ' (reação)' : '') });
-    vista.resultado = alerta ? conselho(fm.produto) : null;
-    vista.form = { sintomas: [], produto: '', nota: '' };
+    const r = { criado: Date.now(), dia, nivel: fm.nivel, sintomas: fm.sintomas, areas: fm.areas, fatores: fm.fatores, produto: fm.produto, nota: fm.nota.trim() };
+    S.diario.push(r);
+    const alerta = r.sintomas.some(s => SINTOMAS_ALERTA.includes(s));
+    registrar('diario', { d: dia, produto: fm.produto || undefined, detalhe: [r.nivel ? NIVEIS_PELE[r.nivel][0] : '', ...r.sintomas, ...r.fatores].filter(Boolean).join('; ') + (alerta ? ' (reação)' : '') });
+    vista.resultado = alerta ? conselho(fm.produto) : respostaDoDiario(r);
+    vista.form = formVazio();
     salvar(); render(); window.scrollTo(0, 0); toast('Salvo no diário.');
   },
   apagarRegistro: el => {
@@ -1596,6 +1694,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // os dias marcados antes do contador existir também contam
+atualizarDiario();
 aplicarRotina();
 congelarPassado();
 for (const d of Object.keys(S.feitos)) if (!S.completos[d] && d <= HOJE) registrarDia(d);

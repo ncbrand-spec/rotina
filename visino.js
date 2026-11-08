@@ -1,5 +1,6 @@
 // O Visinho, o mascote do Velvet: o mesmo rostinho do ícone, com expressões e acessórios.
-// Uso: Visino.desenha('feliz') devolve um <svg>. Estados: serena, acordada, dica, feliz, semana, noite, sol, cuidado.
+// Uso: Visino.desenha('feliz') devolve um <svg>. Estados: serena, acordada, dica, feliz, semana, noite, sol, cuidado,
+// e para o diário: neutro (mais ou menos) e triste (pele mal).
 (function () {
   'use strict';
   const INK = '#24181e', CREMA = '#fff0d8', ROSA = '#f19aa9', GIALLO = '#fec340', VERDE = '#0a5b58', CREMISI = '#b61e42', MALVA = '#b58aa9';
@@ -42,7 +43,14 @@
     cuidado: () => folhas + rosto + bochechas +
       `<ellipse cx="72" cy="120" rx="7" ry="8" fill="${INK}"/><ellipse cx="128" cy="120" rx="7" ry="8" fill="${INK}"/>
        <path d="M58 106l24 -7M142 106l-24 -7" ${traco(6)}/><path d="M86 152q7 -6 14 0t14 0" ${traco(6)}/>
-       <path d="M160 80c0 0-8 10-8 16a8 8 0 0 0 16 0c0-6-8-16-8-16z" fill="#9fd3e6" stroke="${INK}" stroke-width="4"/>`
+       <path d="M160 80c0 0-8 10-8 16a8 8 0 0 0 16 0c0-6-8-16-8-16z" fill="#9fd3e6" stroke="${INK}" stroke-width="4"/>`,
+    neutro: () => folhas + rosto + bochechas + olhosAbertos + `<path d="M88 151h24" ${traco(6)}/>`,
+    // triste: as folhinhas caídas, as sobrancelhas para cima no meio e a boca para baixo
+    triste: () => `<path d="M100 50C84 52 70 46 62 30C80 26 95 34 100 50Z" fill="#4f9a5e" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+       <path d="M100 50C116 52 130 46 138 30C120 26 105 34 100 50Z" fill="#86c38a" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>` +
+      rosto + bochechas + `<ellipse cx="72" cy="120" rx="7" ry="9" fill="${INK}"/><ellipse cx="128" cy="120" rx="7" ry="9" fill="${INK}"/>
+       <circle cx="74.5" cy="116.5" r="2.6" fill="#fff"/><circle cx="130.5" cy="116.5" r="2.6" fill="#fff"/>
+       <path d="M58 106l22 -6M142 106l-22 -6" ${traco(5)}/><path d="M86 158q14 -12 28 0" ${traco(6)}/>`
   };
 
   function desenha(estado = 'serena', classe = '') {
